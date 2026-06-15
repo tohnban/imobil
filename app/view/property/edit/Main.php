@@ -33,10 +33,7 @@ foreach ($existingImages as $imgPath) {
     if ($path === '') {
         continue;
     }
-    $url = $path;
-    if (!preg_match('#^https?://#i', $url)) {
-        $url = DIRPAGE . ltrim($url, '/');
-    }
+    $url = \Src\classes\ClassMediaUrl::propertyImage($path);
     $existingImagesGallery[] = ['path' => $path, 'url' => $url];
 }
 $existingImagesJson = json_encode(
@@ -221,8 +218,8 @@ $boostStatusMap = [
                         <h3>Imagens</h3>
                         <div class="form-group property-upload-panel">
                             <label for="images">Galeria do imóvel</label>
-                            <input type="file" id="images" name="images[]" accept="image/*" multiple>
-                            <small class="property-create-note">Até 8 imagens no total, JPG, PNG, WEBP ou GIF. Máx. <?php echo htmlspecialchars(\Src\classes\UploadLimits::formatShort(\Src\classes\UploadLimits::SERVER_MAX_BYTES), ENT_QUOTES, 'UTF-8'); ?> por ficheiro.</small>
+                            <input type="file" id="images" name="images[]" accept="image/*,.heic,.heif" multiple>
+                            <small class="property-create-note">Até 8 imagens no total: JPG, PNG, GIF, WebP ou HEIC (iPhone). Máx. <?php echo htmlspecialchars(\Src\classes\UploadLimits::formatShort(\Src\classes\UploadLimits::SERVER_MAX_BYTES), ENT_QUOTES, 'UTF-8'); ?> por ficheiro.</small>
                             <small class="property-create-note">A primeira miniatura é a capa do anúncio.</small>
                             <div
                                 id="property-image-preview"

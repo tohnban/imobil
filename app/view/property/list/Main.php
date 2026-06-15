@@ -337,8 +337,8 @@ if ($discoveryPersonalized) {
                     $isFavSp = in_array((int) ($sp['id'] ?? 0), $favoriteIds ?? [], true);
                     $spImages = json_decode((string) ($sp['images'] ?? '[]'), true);
                     $spFirstImage = (is_array($spImages) && !empty($spImages[0])) ? (string) $spImages[0] : '';
-                    if ($spFirstImage !== '' && !preg_match('#^https?://#i', $spFirstImage)) {
-                        $spFirstImage = DIRPAGE . ltrim($spFirstImage, '/');
+                    if ($spFirstImage !== '') {
+                        $spFirstImage = \Src\classes\ClassMediaUrl::propertyImage($spFirstImage);
                     }
                     $spCoverImage = $spFirstImage !== '' ? $spFirstImage : (DIRIMG . 'apt20.avif');
                     ?>

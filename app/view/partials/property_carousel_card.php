@@ -26,8 +26,8 @@ if ($badgeLabel === '') {
 }
 $imagesList = json_decode((string) ($property['images'] ?? '[]'), true);
 $firstImage = (is_array($imagesList) && !empty($imagesList[0])) ? (string) $imagesList[0] : '';
-if ($firstImage !== '' && !preg_match('#^https?://#i', $firstImage)) {
-    $firstImage = DIRPAGE . ltrim($firstImage, '/');
+if ($firstImage !== '') {
+    $firstImage = \Src\classes\ClassMediaUrl::propertyImage($firstImage);
 }
 $coverImage = $firstImage !== '' ? $firstImage : (DIRIMG . 'apt20.avif');
 $ownerPhoneDigits = preg_replace('/\D+/', '', (string) ($property['owner_phone'] ?? ''));

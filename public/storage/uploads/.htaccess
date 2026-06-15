@@ -1,4 +1,5 @@
-# Comprovativos e anexos — servir apenas via /file/serve (autenticado).
+# Comprovativos e anexos sensíveis — servir apenas via /file/serve (autenticado).
+# Fotos públicas (perfil, imóveis) — servir via /media/serve (lista branca).
 <IfModule mod_authz_core.c>
     Require all denied
 </IfModule>

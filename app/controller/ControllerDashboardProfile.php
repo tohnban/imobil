@@ -405,7 +405,7 @@ class ControllerDashboardProfile
             $updateData['password'] = $newPassword;
         }
         if ($photoPath !== null) {
-            $updateData['profile_photo'] = DIRPAGE . $photoPath;
+            $updateData['profile_photo'] = $photoPath;
         }
 
         if (!empty($updateData)) {
@@ -542,35 +542,24 @@ class ControllerDashboardProfile
             return ['path' => null, 'error' => null];
         }
 
-        $allowedMimes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
         $tmpName = (string) ($profilePhoto['tmp_name'] ?? '');
 
         if ($tmpName === '' || !is_uploaded_file($tmpName)) {
             return ['path' => null, 'error' => 'Arquivo de imagem inválido'];
         }
 
-        $finfo = finfo_open(FILEINFO_MIME_TYPE);
-        $detectedMime = $finfo ? (string) finfo_file($finfo, $tmpName) : '';
-        if ($finfo) {
-            finfo_close($finfo);
-        }
+        $detectedMime = \Src\classes\ClassImageUpload::detectMime($tmpName);
 
-        if (!in_array($detectedMime, $allowedMimes, true)) {
-            return ['path' => null, 'error' => 'Formato de imagem inválido. Aceitos: JPG, PNG, GIF, WebP'];
+        if (!\Src\classes\ClassImageUpload::isStandardMime($detectedMime)) {
+            return ['path' => null, 'error' => \Src\classes\ClassImageUpload::INVALID_STANDARD_FORMAT];
         }
         if (\Src\classes\UploadLimits::exceedsServerMax((int) ($profilePhoto['size'] ?? 0))) {
             return ['path' => null, 'error' => \Src\classes\UploadLimits::serverMaxError('A foto de perfil')];
         }
 
-        $extMap = [
-            'image/jpeg' => 'jpg',
-            'image/png' => 'png',
-            'image/gif' => 'gif',
-            'image/webp' => 'webp',
-        ];
-        $ext = $extMap[$detectedMime] ?? 'jpg';
+        $ext = \Src\classes\ClassImageUpload::extensionForMime($detectedMime);
 
-        $uploadDirRelative = 'storage/uploads/profiles/';
+        $uploadDirRelative = 'public/storage/uploads/profiles/';
         $uploadDirAbs = rtrim((string) DIRREQ, '/\\') . DIRECTORY_SEPARATOR . str_replace(['/', '\\'], DIRECTORY_SEPARATOR, $uploadDirRelative);
         if (!is_dir($uploadDirAbs) && !mkdir($uploadDirAbs, 0755, true) && !is_dir($uploadDirAbs)) {
             return ['path' => null, 'error' => 'Não foi possível preparar a pasta da foto'];
@@ -630,7 +619,7 @@ class ControllerDashboardProfile
             $updateData['password'] = $newPassword;
         }
         if ($photoWillChange) {
-            $updateData['profile_photo'] = DIRPAGE . $photoUpload['path'];
+            $updateData['profile_photo'] = $photoUpload['path'];
         }
 
         if (!User::updateProfile((int) $currentUser['id'], $updateData)) {

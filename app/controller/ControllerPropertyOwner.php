@@ -234,6 +234,113 @@ class ControllerPropertyOwner
     }
 
 
+    /**
+     * Converte JPEG/PNG/GIF/HEIC enviados (ex.: mobile sem DataTransfer) para WebP no servidor.
+     */
+    private function isHeicUpload(string $mime, string $originalName = ''): bool
+    {
+        $mime = strtolower(trim($mime));
+        $heicMimes = [
+            'image/heic',
+            'image/heif',
+            'image/heic-sequence',
+            'image/heif-sequence',
+        ];
+
+        if (in_array($mime, $heicMimes, true)) {
+            return true;
+        }
+
+        $ext = strtolower(pathinfo($originalName, PATHINFO_EXTENSION));
+
+        return in_array($ext, ['heic', 'heif'], true);
+    }
+
+
+    private function convertHeicUploadToWebp(string $tmpPath, string $destination): bool
+    {
+        if (!extension_loaded('imagick') || !class_exists(\Imagick::class)) {
+            return false;
+        }
+
+        try {
+            $imagick = new \Imagick();
+            $imagick->readImage($tmpPath);
+            if ($imagick->getNumberImages() > 1) {
+                $imagick = $imagick->mergeImageLayers(\Imagick::LAYERMETHOD_FLATTEN);
+            }
+            $imagick->setImageFormat('webp');
+            $imagick->setImageCompressionQuality(82);
+            $saved = $imagick->writeImage($destination);
+            $imagick->clear();
+            $imagick->destroy();
+
+            return $saved && is_file($destination);
+        } catch (\Throwable $e) {
+            return false;
+        }
+    }
+
+
+    private function convertUploadedImageToWebp(string $tmpPath, string $mime, string $destination): bool
+    {
+        if ($this->isHeicUpload($mime)) {
+            return $this->convertHeicUploadToWebp($tmpPath, $destination);
+        }
+
+        if (!function_exists('imagewebp')) {
+            return false;
+        }
+
+        $image = false;
+        if ($mime === 'image/jpeg') {
+            $image = @imagecreatefromjpeg($tmpPath);
+        } elseif ($mime === 'image/png') {
+            $image = @imagecreatefrompng($tmpPath);
+        } elseif ($mime === 'image/gif' && function_exists('imagecreatefromgif')) {
+            $image = @imagecreatefromgif($tmpPath);
+        }
+
+        if ($image === false) {
+            return false;
+        }
+
+        if ($mime === 'image/png' || $mime === 'image/gif') {
+            $width = imagesx($image);
+            $height = imagesy($image);
+            if ($width > 0 && $height > 0) {
+                $canvas = imagecreatetruecolor($width, $height);
+                if ($canvas !== false) {
+                    $white = imagecolorallocate($canvas, 255, 255, 255);
+                    imagefill($canvas, 0, 0, $white);
+                    imagecopy($canvas, $image, 0, 0, 0, 0, $width, $height);
+                    imagedestroy($image);
+                    $image = $canvas;
+                }
+            }
+        }
+
+        $saved = imagewebp($image, $destination, 82);
+        imagedestroy($image);
+
+        return $saved && is_file($destination);
+    }
+
+
+    private function persistPropertyImageUpload(string $tmpName, string $mime, string $destination): bool
+    {
+        if ($mime === 'image/webp') {
+            return move_uploaded_file($tmpName, $destination);
+        }
+
+        if (!$this->convertUploadedImageToWebp($tmpName, $mime, $destination)) {
+            return false;
+        }
+
+        return is_file($destination);
+    }
+
+
     private function processPropertyImages(array $files, int $maxFiles = 8): array
     {
         $savedPaths = [];
@@ -243,7 +350,6 @@ class ControllerPropertyOwner
             return ['paths' => [], 'errors' => []];
         }
 
-        $allowedMime = ['image/webp'];
         $maxPerFile = UploadLimits::serverMaxBytes();
         $count = count($files['name']);
         $maxFiles = max(0, $maxFiles);
@@ -287,9 +393,12 @@ class ControllerPropertyOwner
                 continue;
             }
 
+            $originalName = (string) ($files['name'][$i] ?? '');
             $mime = $finfo ? (string) finfo_file($finfo, $tmpName) : '';
-            if (!in_array($mime, $allowedMime, true)) {
-                $errors[] = 'Formato de imagem inválido. Envie imagens em WEBP.';
+            if ($this->isHeicUpload($mime, $originalName)) {
+                $mime = 'image/heic';
+            } elseif (!\Src\classes\ClassImageUpload::isPropertyMime($mime)) {
+                $errors[] = \Src\classes\ClassImageUpload::INVALID_PROPERTY_FORMAT;
                 continue;
             }
 
@@ -302,8 +411,12 @@ class ControllerPropertyOwner
             $filename = 'property_' . time() . '_' . $randomSuffix . '.webp';
             $destination = $uploadDir . $filename;
 
-            if (!move_uploaded_file($tmpName, $destination)) {
-                $errors[] = 'Falha ao salvar uma imagem enviada.';
+            if (!$this->persistPropertyImageUpload($tmpName, $mime, $destination)) {
+                $errors[] = $mime === 'image/webp'
+                    ? 'Falha ao salvar uma imagem enviada.'
+                    : ($mime === 'image/heic'
+                        ? 'Não foi possível converter foto HEIC. Tente JPG ou escolha "Mais compatível" na galeria do iPhone.'
+                        : 'Não foi possível converter uma imagem para WebP no servidor.');
                 continue;
             }
 
@@ -662,11 +775,9 @@ class ControllerPropertyOwner
             exit;
         }
 
-        $finfo     = new \finfo(FILEINFO_MIME_TYPE);
-        $proofMime = (string) $finfo->file((string) $proofFile['tmp_name']);
-        $allowedMimes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
-        if (!in_array($proofMime, $allowedMimes, true)) {
-            header('Location: ' . DIRPAGE . 'dashboard/myProperties?error=Formato+invalido+use+JPG+PNG+ou+WebP');
+        $proofMime = \Src\classes\ClassImageUpload::detectMime((string) $proofFile['tmp_name']);
+        if (!\Src\classes\ClassImageUpload::isStandardMime($proofMime)) {
+            header('Location: ' . DIRPAGE . 'dashboard/myProperties?error=' . rawurlencode(\Src\classes\ClassImageUpload::INVALID_STANDARD_FORMAT));
             exit;
         }
         if (UploadLimits::exceedsServerMax((int) ($proofFile['size'] ?? 0))) {
@@ -679,8 +790,7 @@ class ControllerPropertyOwner
         if (!is_dir($proofUploadDir)) {
             mkdir($proofUploadDir, 0755, true);
         }
-        $extMap   = ['image/jpeg' => 'jpg', 'image/png' => 'png', 'image/gif' => 'gif', 'image/webp' => 'webp'];
-        $ext      = $extMap[$proofMime] ?? 'jpg';
+        $ext = \Src\classes\ClassImageUpload::extensionForMime($proofMime);
         try {
             $suffix = bin2hex(random_bytes(6));
         } catch (\Throwable $e) {

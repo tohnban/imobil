@@ -29,7 +29,7 @@ if (is_array($rawImages)) {
         }
 
         if (!preg_match('#^https?://#i', $imagePath)) {
-            $imagePath = DIRPAGE . ltrim($imagePath, '/');
+            $imagePath = \Src\classes\ClassMediaUrl::propertyImage($imagePath);
         }
 
         $galleryImages[] = $imagePath;

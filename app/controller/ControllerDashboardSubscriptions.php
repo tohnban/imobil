@@ -181,11 +181,9 @@ class ControllerDashboardSubscriptions
                 exit;
             }
 
-            $finfo = new \finfo(FILEINFO_MIME_TYPE);
-            $proofMime = (string) $finfo->file((string) $proofFile['tmp_name']);
-            $allowedProofMimes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
-            if (!in_array($proofMime, $allowedProofMimes, true)) {
-                header('Location: ' . DIRPAGE . 'dashboard/subscriptionCheckout?plan_code=' . rawurlencode($planCode) . '&error=' . rawurlencode('Formato inválido. Use JPG, PNG, GIF ou WebP'));
+            $proofMime = \Src\classes\ClassImageUpload::detectMime((string) $proofFile['tmp_name']);
+            if (!\Src\classes\ClassImageUpload::isStandardMime($proofMime)) {
+                header('Location: ' . DIRPAGE . 'dashboard/subscriptionCheckout?plan_code=' . rawurlencode($planCode) . '&error=' . rawurlencode(\Src\classes\ClassImageUpload::INVALID_STANDARD_FORMAT));
                 exit;
             }
 
@@ -200,8 +198,7 @@ class ControllerDashboardSubscriptions
                 mkdir($proofUploadDir, 0755, true);
             }
 
-            $proofExtMap = ['image/jpeg' => 'jpg', 'image/png' => 'png', 'image/gif' => 'gif', 'image/webp' => 'webp'];
-            $proofExt = $proofExtMap[$proofMime] ?? 'jpg';
+            $proofExt = \Src\classes\ClassImageUpload::extensionForMime($proofMime);
             $proofFilename = 'sub_' . (int) $user['id'] . '_' . time() . '.' . $proofExt;
             if (!move_uploaded_file((string) $proofFile['tmp_name'], $proofUploadDir . $proofFilename)) {
                 header('Location: ' . DIRPAGE . 'dashboard/subscriptionCheckout?plan_code=' . rawurlencode($planCode) . '&error=' . rawurlencode('Erro ao guardar o comprovativo'));

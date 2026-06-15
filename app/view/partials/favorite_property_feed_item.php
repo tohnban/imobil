@@ -30,8 +30,8 @@ $statusLabel = $statusLabels[$propertyStatus] ?? ucfirst($propertyStatus);
 
 $propertyImages = json_decode((string) ($property['images'] ?? '[]'), true);
 $firstImage = (is_array($propertyImages) && !empty($propertyImages[0])) ? (string) $propertyImages[0] : '';
-if ($firstImage !== '' && !preg_match('#^https?://#i', $firstImage)) {
-    $firstImage = DIRPAGE . ltrim($firstImage, '/');
+if ($firstImage !== '') {
+    $firstImage = \Src\classes\ClassMediaUrl::propertyImage($firstImage);
 }
 $coverImage = $firstImage !== '' ? $firstImage : (DIRIMG . 'apt20.avif');
 

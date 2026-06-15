@@ -168,8 +168,8 @@
                         <h3>Imagens</h3>
                         <div class="form-group property-upload-panel">
                             <label for="images">Imagens do Imóvel</label>
-                            <input type="file" id="images" name="images[]" accept="image/*" multiple>
-                            <small class="property-create-note">Até 8 imagens, JPG, PNG, WEBP ou GIF. Máx. <?php echo htmlspecialchars(\Src\classes\UploadLimits::formatShort(\Src\classes\UploadLimits::SERVER_MAX_BYTES), ENT_QUOTES, 'UTF-8'); ?> por ficheiro.</small>
+                            <input type="file" id="images" name="images[]" accept="image/*,.heic,.heif" multiple>
+                            <small class="property-create-note">Até 8 imagens: JPG, PNG, GIF, WebP ou HEIC (iPhone). Máx. <?php echo htmlspecialchars(\Src\classes\UploadLimits::formatShort(\Src\classes\UploadLimits::SERVER_MAX_BYTES), ENT_QUOTES, 'UTF-8'); ?> por ficheiro.</small>
                             <small class="property-create-note">A primeira miniatura será usada como capa. Pode remover imagens ou definir outra como capa antes de enviar.</small>
                             <div id="property-image-preview" class="property-image-preview" aria-live="polite"></div>
                         </div>

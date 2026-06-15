@@ -27,6 +27,7 @@ class ClassRoutes
         'notification' => 'ControllerNotification',
         'api' => 'ControllerApi',
         'file' => 'ControllerFile',
+        'media' => 'ControllerMedia',
     ];
 
     private $Rotas;

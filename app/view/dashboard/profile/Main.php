@@ -23,7 +23,7 @@
                     </div>
                     <div class="profile-photo-section dashboard-margin-bottom-reset">
                         <?php if (!empty($user['profile_photo'])): ?>
-                            <img src="<?php echo htmlspecialchars($user['profile_photo']); ?>" alt="<?php echo htmlspecialchars($user['name']); ?>" class="profile-photo-display">
+                            <img src="<?php echo htmlspecialchars(\Src\classes\ClassMediaUrl::profilePhoto($user['profile_photo'])); ?>" alt="<?php echo htmlspecialchars($user['name']); ?>" class="profile-photo-display">
                         <?php else: ?>
                             <div class="profile-photo-placeholder">
                                 <i class="fa fa-user"></i>
@@ -128,7 +128,7 @@
 
                 <div class="profile-photo-section dashboard-margin-bottom-reset">
                     <?php if (!empty($user['profile_photo'])): ?>
-                        <img src="<?php echo htmlspecialchars($user['profile_photo']); ?>" alt="<?php echo htmlspecialchars($user['name']); ?>" class="profile-photo-display">
+                        <img src="<?php echo htmlspecialchars(\Src\classes\ClassMediaUrl::profilePhoto($user['profile_photo'])); ?>" alt="<?php echo htmlspecialchars($user['name']); ?>" class="profile-photo-display">
                     <?php else: ?>
                         <div class="profile-photo-placeholder">
                             <i class="fa fa-user"></i>

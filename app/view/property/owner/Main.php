@@ -13,11 +13,7 @@ $isVerified = !empty($trustMetrics['verified']);
 $isTrusted = !empty($trustMetrics['trusted']);
 
 $rawPhoto = (string) ($owner['profile_photo'] ?? '');
-if ($rawPhoto !== '') {
-    $avatarUrl = preg_match('#^https?://#i', $rawPhoto) ? $rawPhoto : DIRPAGE . ltrim($rawPhoto, '/');
-} else {
-    $avatarUrl = '';
-}
+$avatarUrl = $rawPhoto !== '' ? \Src\classes\ClassMediaUrl::profilePhoto($rawPhoto) : '';
 
 $presentation = htmlspecialchars((string) ($owner['presentation'] ?? ''));
 $propertyCount = count($properties);
@@ -125,8 +121,8 @@ $phoneDigits = preg_replace('/\D+/', '', $rawPhone);
                     $isFav = in_array((int) ($prop['id'] ?? 0), $favoriteIds ?? [], true);
                     $propImages = json_decode((string) ($prop['images'] ?? '[]'), true);
                     $propFirstImage = (is_array($propImages) && !empty($propImages[0])) ? (string) $propImages[0] : '';
-                    if ($propFirstImage !== '' && !preg_match('#^https?://#i', $propFirstImage)) {
-                        $propFirstImage = DIRPAGE . ltrim($propFirstImage, '/');
+                    if ($propFirstImage !== '') {
+                        $propFirstImage = \Src\classes\ClassMediaUrl::propertyImage($propFirstImage);
                     }
                     $propCover = $propFirstImage !== '' ? $propFirstImage : (DIRIMG . 'apt20.avif');
                     $propPurpose = ucfirst(str_replace('_', ' ', (string) ($prop['purpose'] ?? '')));

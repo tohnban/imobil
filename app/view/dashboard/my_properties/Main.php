@@ -139,8 +139,8 @@ $boostEligible = array_filter($properties ?? [], static function ($p) use ($pend
                         $statusClass = $statusClassMap[$propertyStatus] ?? 'dashboard-chip';
                         $propertyImages = json_decode((string) ($property['images'] ?? '[]'), true);
                         $propertyFirstImage = (is_array($propertyImages) && !empty($propertyImages[0])) ? (string) $propertyImages[0] : '';
-                        if ($propertyFirstImage !== '' && !preg_match('#^https?://#i', $propertyFirstImage)) {
-                            $propertyFirstImage = DIRPAGE . ltrim($propertyFirstImage, '/');
+                        if ($propertyFirstImage !== '') {
+                            $propertyFirstImage = \Src\classes\ClassMediaUrl::propertyImage($propertyFirstImage);
                         }
                         $propertyCover = $propertyFirstImage !== '' ? $propertyFirstImage : (DIRIMG . 'apt20.avif');
                         $purposeLabel = ucfirst(str_replace('_', ' ', (string) ($property['purpose'] ?? 'nao informado')));

@@ -33,11 +33,7 @@ $isVerified = !empty($trustMetrics['verified']);
 $isTrusted = !empty($trustMetrics['trusted']);
 
 $rawPhoto = (string) ($agencyUser['profile_photo'] ?? '');
-if ($rawPhoto !== '') {
-    $avatarUrl = preg_match('#^https?://#i', $rawPhoto) ? $rawPhoto : DIRPAGE . ltrim($rawPhoto, '/');
-} else {
-    $avatarUrl = '';
-}
+$avatarUrl = $rawPhoto !== '' ? \Src\classes\ClassMediaUrl::profilePhoto($rawPhoto) : '';
 
 $presentation = trim((string) ($agencyUser['presentation'] ?? ''));
 if ($presentation === '') {
@@ -75,8 +71,8 @@ $formatPurpose = static function (?string $value) use ($purposeLabels): string {
 $coverImage = static function (array $property): string {
     $images = json_decode((string) ($property['images'] ?? '[]'), true);
     $first = (is_array($images) && !empty($images[0])) ? (string) $images[0] : '';
-    if ($first !== '' && !preg_match('#^https?://#i', $first)) {
-        $first = DIRPAGE . ltrim($first, '/');
+    if ($first !== '') {
+        $first = \Src\classes\ClassMediaUrl::propertyImage($first);
     }
     return $first !== '' ? $first : (DIRIMG . 'apt20.avif');
 };

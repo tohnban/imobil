@@ -33,6 +33,8 @@ $dashboardPanelHref = $isLimitedPlatformUser
     : DIRPAGE . 'dashboard?view=overview';
 $dashboardMenuHubHref = DIRPAGE . 'dashboard';
 $isAuthLayout = strpos($currentViewDir, 'auth/') === 0;
+$loadHeicConverter = in_array($currentViewDir, ['property/create', 'property/edit'], true);
+$suppressGlobalFlash = in_array($currentViewDir, ['property/create', 'property/edit'], true);
 
 $rawSuccess = isset($_GET['success']) ? trim((string) $_GET['success']) : '';
 $rawError = isset($_GET['error']) ? trim((string) $_GET['error']) : '';
@@ -40,11 +42,11 @@ $rawError = isset($_GET['error']) ? trim((string) $_GET['error']) : '';
 $flashSuccess = null;
 $flashError = null;
 
-if ($rawSuccess !== '') {
+if ($rawSuccess !== '' && !$suppressGlobalFlash) {
     $flashSuccess = ($rawSuccess === '1') ? 'Operação realizada com sucesso.' : $rawSuccess;
 }
 
-if ($rawError !== '') {
+if ($rawError !== '' && !$suppressGlobalFlash) {
     $flashError = ($rawError === '1') ? 'Não foi possível concluir a operação.' : $rawError;
 }
 
@@ -273,7 +275,7 @@ $overdueCommissionBannerHref = (string) ($overdueCommission['action_href'] ?? DI
               <a href="<?php echo $isLimitedPlatformUser ? DIRPAGE . 'dashboard/accountStatus' : DIRPAGE . 'profile'; ?>" class="profile" title="<?php echo $isLimitedPlatformUser ? 'A minha conta' : 'Meu Perfil'; ?>">
                   <div class="profile-img">
                       <?php if (!empty($user['profile_photo'])): ?>
-                          <img src="<?php echo htmlspecialchars($user['profile_photo']); ?>" alt="<?php echo htmlspecialchars($user['name']); ?>">
+                          <img src="<?php echo htmlspecialchars(\Src\classes\ClassMediaUrl::profilePhoto($user['profile_photo'])); ?>" alt="<?php echo htmlspecialchars($user['name']); ?>">
                       <?php else: ?>
                           <span class="profile-fallback"><?php echo strtoupper(substr(trim((string) ($user['name'] ?? 'U')), 0, 1)); ?></span>
                       <?php endif; ?>
@@ -481,6 +483,9 @@ $overdueCommissionBannerHref = (string) ($overdueCommission['action_href'] ?? DI
     </div>
 </section>
 <script src="<?php echo DIRJS.'upload-limits.js?v=20260612a'?>"></script>
-<script src="<?php echo DIRJS.'script.js?v=20260615b'?>"></script>
+<?php if ($loadHeicConverter): ?>
+<script src="<?php echo DIRJS.'heic2any.min.js?v=20260615c'?>"></script>
+<?php endif; ?>
+<script src="<?php echo DIRJS.'script.js?v=20260615c'?>"></script>
 </body>
 </html>             

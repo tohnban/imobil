@@ -8,8 +8,8 @@ $favoriteIds = isset($favoriteIds) && is_array($favoriteIds) ? $favoriteIds : []
 $isFav = in_array((int) ($property['id'] ?? 0), $favoriteIds, true);
 $regularImages = json_decode((string) ($property['images'] ?? '[]'), true);
 $regularFirstImage = (is_array($regularImages) && !empty($regularImages[0])) ? (string) $regularImages[0] : '';
-if ($regularFirstImage !== '' && !preg_match('#^https?://#i', $regularFirstImage)) {
-    $regularFirstImage = DIRPAGE . ltrim($regularFirstImage, '/');
+if ($regularFirstImage !== '') {
+    $regularFirstImage = \Src\classes\ClassMediaUrl::propertyImage($regularFirstImage);
 }
 $regularCoverImage = $regularFirstImage !== '' ? $regularFirstImage : (DIRIMG . 'apt20.avif');
 ?>

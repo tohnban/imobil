@@ -15,6 +15,7 @@ $directories = [
     'storage/logs',
     'storage/documents',
     'storage/uploads/profiles',
+    'public/storage/uploads/profiles',
     'public/storage/uploads/boost_proofs',
     'public/storage/uploads/trust_badge_proofs',
     'public/storage/uploads/subscription_proofs',

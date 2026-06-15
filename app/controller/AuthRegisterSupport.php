@@ -3,6 +3,7 @@
 namespace App\controller;
 
 use Src\classes\AuthRegisterFeedback;
+use Src\classes\ClassImageUpload;
 use Src\classes\UploadLimits;
 
 trait AuthRegisterSupport
@@ -24,16 +25,7 @@ trait AuthRegisterSupport
 
         $errorCode = (int) ($profilePhoto['error'] ?? UPLOAD_ERR_OK);
         if ($errorCode !== UPLOAD_ERR_OK) {
-            $errorMap = [
-                UPLOAD_ERR_INI_SIZE => 'A foto de perfil excede o limite do servidor.',
-                UPLOAD_ERR_FORM_SIZE => 'A foto de perfil excede o limite permitido no formulário.',
-                UPLOAD_ERR_PARTIAL => 'A foto de perfil foi enviada parcialmente.',
-                UPLOAD_ERR_NO_TMP_DIR => 'Pasta temporária indisponível para a foto de perfil.',
-                UPLOAD_ERR_CANT_WRITE => 'Falha ao gravar a foto de perfil no disco.',
-                UPLOAD_ERR_EXTENSION => 'Upload da foto de perfil bloqueado pelo servidor.',
-            ];
-
-            return ['path' => null, 'error' => $errorMap[$errorCode] ?? 'Erro ao enviar a foto de perfil.'];
+            return ['path' => null, 'error' => ClassImageUpload::uploadErrorMessage($errorCode, 'A foto de perfil')];
         }
 
         $tmpName = (string) ($profilePhoto['tmp_name'] ?? '');
@@ -45,21 +37,13 @@ trait AuthRegisterSupport
             return ['path' => null, 'error' => UploadLimits::serverMaxError('A foto de perfil')];
         }
 
-        $finfo = finfo_open(FILEINFO_MIME_TYPE);
-        $detectedMime = $finfo ? (string) finfo_file($finfo, $tmpName) : '';
-        if ($finfo) {
-            finfo_close($finfo);
+        $detectedMime = ClassImageUpload::detectMime($tmpName);
+        if (!ClassImageUpload::isStandardMime($detectedMime)) {
+            return ['path' => null, 'error' => ClassImageUpload::INVALID_STANDARD_FORMAT];
         }
 
-        $allowedMime = [
-            'image/jpeg' => 'jpg',
-        ];
-
-        if (!isset($allowedMime[$detectedMime])) {
-            return ['path' => null, 'error' => 'Formato de foto inválido. A foto final deve estar em JPG.'];
-        }
-
-        $uploadDir = rtrim(DIRREQ, '/\\') . DIRECTORY_SEPARATOR . 'storage' . DIRECTORY_SEPARATOR . 'uploads' . DIRECTORY_SEPARATOR . 'profiles' . DIRECTORY_SEPARATOR;
+        $uploadDirRelative = 'public/storage/uploads/profiles/';
+        $uploadDir = rtrim(DIRREQ, '/\\') . DIRECTORY_SEPARATOR . str_replace(['/', '\\'], DIRECTORY_SEPARATOR, $uploadDirRelative);
         if (!is_dir($uploadDir) && !mkdir($uploadDir, 0755, true) && !is_dir($uploadDir)) {
             return ['path' => null, 'error' => 'Não foi possível preparar a pasta da foto de perfil.'];
         }
@@ -69,13 +53,14 @@ trait AuthRegisterSupport
         } catch (\Throwable $e) {
             $suffix = substr(md5(uniqid('', true)), 0, 12);
         }
-        $filename = 'profile_' . $userId . '_' . time() . '_' . $suffix . '.' . $allowedMime[$detectedMime];
+        $ext = ClassImageUpload::extensionForMime($detectedMime);
+        $filename = 'profile_' . $userId . '_' . time() . '_' . $suffix . '.' . $ext;
         $targetPath = $uploadDir . $filename;
         if (!move_uploaded_file($tmpName, $targetPath)) {
             return ['path' => null, 'error' => 'Falha ao salvar a foto de perfil.'];
         }
 
-        return ['path' => DIRPAGE . 'storage/uploads/profiles/' . $filename, 'error' => null];
+        return ['path' => $uploadDirRelative . $filename, 'error' => null];
     }
 
 }

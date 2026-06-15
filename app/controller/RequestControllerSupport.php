@@ -91,17 +91,8 @@ trait RequestControllerSupport
             return ['path' => null, 'error' => null];
         }
 
-        $errorMap = [
-            UPLOAD_ERR_INI_SIZE => 'O arquivo excede o limite do servidor.',
-            UPLOAD_ERR_FORM_SIZE => 'O arquivo excede o limite permitido no formulário.',
-            UPLOAD_ERR_PARTIAL => 'O arquivo foi enviado parcialmente.',
-            UPLOAD_ERR_NO_TMP_DIR => 'Pasta temporária de upload indisponível.',
-            UPLOAD_ERR_CANT_WRITE => 'Falha ao gravar arquivo no disco.',
-            UPLOAD_ERR_EXTENSION => 'Upload de arquivo bloqueado pelo servidor.',
-        ];
-
         if ($errorCode !== UPLOAD_ERR_OK) {
-            return ['path' => null, 'error' => $errorMap[$errorCode] ?? 'Erro ao enviar arquivo.'];
+            return ['path' => null, 'error' => \Src\classes\ClassImageUpload::uploadErrorMessage($errorCode, 'O ficheiro')];
         }
 
         $tmpName = (string) ($file['tmp_name'] ?? '');
@@ -115,24 +106,13 @@ trait RequestControllerSupport
             return ['path' => null, 'error' => UploadLimits::serverMaxError('O ficheiro')];
         }
 
-        $allowedMime = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
-        $finfo = finfo_open(FILEINFO_MIME_TYPE);
-        $mime = $finfo ? (string) finfo_file($finfo, $tmpName) : '';
-        if ($finfo) {
-            finfo_close($finfo);
+        $mime = \Src\classes\ClassImageUpload::detectMime($tmpName);
+
+        if (!\Src\classes\ClassImageUpload::isStandardMime($mime)) {
+            return ['path' => null, 'error' => \Src\classes\ClassImageUpload::INVALID_STANDARD_FORMAT];
         }
 
-        if (!in_array($mime, $allowedMime, true)) {
-            return ['path' => null, 'error' => 'Formato inválido. Use JPG, PNG, WebP ou GIF.'];
-        }
-
-        $extMap = [
-            'image/jpeg' => 'jpg',
-            'image/png' => 'png',
-            'image/webp' => 'webp',
-            'image/gif' => 'gif',
-        ];
-        $ext = $extMap[$mime] ?? 'jpg';
+        $ext = \Src\classes\ClassImageUpload::extensionForMime($mime);
 
         $uploadDirRelative = 'public/storage/uploads/request_chat_attachments/';
         $uploadDir = DIRREQ . $uploadDirRelative;

@@ -120,16 +120,7 @@
                             <div class="request-chat-message-body"><?php echo nl2br(htmlspecialchars($messageText)); ?></div>
                             <?php if ($attachmentPath !== ''): ?>
                                 <div class="request-chat-message-attachment">
-                                    <?php
-                                        $normalizedAttachment = ltrim(str_replace('\\', '/', $attachmentPath), '/');
-                                        if (strpos($normalizedAttachment, 'storage/uploads/') === 0) {
-                                            $normalizedAttachment = 'public/' . $normalizedAttachment;
-                                        }
-                                        $attachmentUrl = DIRPAGE . $normalizedAttachment;
-                                        if (strpos($normalizedAttachment, 'public/storage/uploads/request_chat_attachments/') === 0) {
-                                            $attachmentUrl = DIRPAGE . 'file/serve?path=' . rawurlencode($normalizedAttachment);
-                                        }
-                                    ?>
+                                    <?php $attachmentUrl = \Src\classes\ClassMediaUrl::upload($attachmentPath); ?>
                                     <a href="<?php echo htmlspecialchars($attachmentUrl, ENT_QUOTES, 'UTF-8'); ?>" class="attachment-link" target="_blank" rel="noopener noreferrer">
                                         <i class="fa fa-image"></i> Ver anexo
                                     </a>

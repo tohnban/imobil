@@ -280,35 +280,7 @@ class Request extends ManipularBanco
 
     public static function paymentProofPublicUrl(?string $path): string
     {
-        $path = trim((string) $path);
-        if ($path === '') {
-            return '';
-        }
-
-        if (strpos($path, 'http://') === 0 || strpos($path, 'https://') === 0) {
-            return $path;
-        }
-
-        $normalized = ltrim(str_replace('\\', '/', $path), '/');
-        if (strpos($normalized, 'storage/uploads/') === 0) {
-            $normalized = 'public/' . $normalized;
-        }
-
-        $protectedPrefixes = [
-            'public/storage/uploads/commission_proofs/',
-            'public/storage/uploads/commission_payout_proofs/',
-            'public/storage/uploads/subscription_proofs/',
-            'public/storage/uploads/trust_badge_proofs/',
-            'public/storage/uploads/boost_proofs/',
-            'public/storage/uploads/request_chat_attachments/',
-        ];
-        foreach ($protectedPrefixes as $prefix) {
-            if (strpos($normalized, $prefix) === 0) {
-                return DIRPAGE . 'file/serve?path=' . rawurlencode($normalized);
-            }
-        }
-
-        return DIRPAGE . $normalized;
+        return \Src\classes\ClassMediaUrl::proof($path);
     }
 
     public static function hasVisiblePaymentProof(array $request): bool

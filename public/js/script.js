@@ -1226,11 +1226,14 @@
             for (var i = 0; i < files.length; i++) {
                 var file = files[i];
                 if (!file.type || file.type.indexOf('image/') !== 0) {
-                    throw new Error('Somente arquivos de imagem são permitidos.');
+                    if (!isHeicPropertyImageFile(file)) {
+                        throw new Error('Somente arquivos de imagem são permitidos.');
+                    }
                 }
 
-                var optimizedBlob = await convertFileToOptimizedWebp(file);
-                var baseName = (file.name || ('imagem_' + (i + 1))).replace(/\.[^.]+$/, '').replace(/[^a-zA-Z0-9_-]/g, '_');
+                var normalizedFile = await normalizePropertyImageFile(file);
+                var optimizedBlob = await convertFileToOptimizedWebp(normalizedFile);
+                var baseName = (normalizedFile.name || file.name || ('imagem_' + (i + 1))).replace(/\.[^.]+$/, '').replace(/[^a-zA-Z0-9_-]/g, '_');
                 output.push(new File([optimizedBlob], baseName + '.webp', {
                     type: 'image/webp',
                     lastModified: Date.now()
@@ -1238,6 +1241,48 @@
             }
 
             return output;
+        }
+
+        function isHeicPropertyImageFile(file) {
+            if (!file) {
+                return false;
+            }
+
+            var type = String(file.type || '').toLowerCase();
+            var name = String(file.name || '').toLowerCase();
+            if (type.indexOf('image/heic') === 0 || type.indexOf('image/heif') === 0) {
+                return true;
+            }
+
+            return name.slice(-5) === '.heic' || name.slice(-5) === '.heif';
+        }
+
+        async function normalizePropertyImageFile(file) {
+            if (!isHeicPropertyImageFile(file)) {
+                return file;
+            }
+
+            var heicConverter = window.heic2any;
+            if (typeof heicConverter !== 'function') {
+                throw new Error('Fotos HEIC do iPhone precisam de um navegador actualizado. Tente JPG ou escolha "Mais compatível" na galeria.');
+            }
+
+            var converted = await heicConverter({
+                blob: file,
+                toType: 'image/jpeg',
+                quality: 0.92
+            });
+            var jpegBlob = Array.isArray(converted) ? converted[0] : converted;
+            if (!jpegBlob) {
+                throw new Error('Não foi possível converter a foto HEIC.');
+            }
+
+            var baseName = (file.name || 'imagem').replace(/\.[^.]+$/, '').replace(/[^a-zA-Z0-9_-]/g, '_');
+
+            return new File([jpegBlob], baseName + '.jpg', {
+                type: 'image/jpeg',
+                lastModified: Date.now()
+            });
         }
 
         function ensureGalleryFilesReadyForSubmit() {

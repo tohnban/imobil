@@ -738,11 +738,9 @@ class ControllerDashboardModeration
             exit;
         }
 
-        $finfo = new \finfo(FILEINFO_MIME_TYPE);
-        $proofMime = (string) $finfo->file((string) $proofFile['tmp_name']);
-        $allowedProofMimes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
-        if (!in_array($proofMime, $allowedProofMimes, true)) {
-            header('Location: ' . DIRPAGE . 'profile#trust-badge-section?error=Formato inválido (use JPG, PNG ou WebP)');
+        $proofMime = \Src\classes\ClassImageUpload::detectMime((string) $proofFile['tmp_name']);
+        if (!\Src\classes\ClassImageUpload::isStandardMime($proofMime)) {
+            header('Location: ' . DIRPAGE . 'profile#trust-badge-section?error=' . rawurlencode(\Src\classes\ClassImageUpload::INVALID_STANDARD_FORMAT));
             exit;
         }
         if (UploadLimits::exceedsServerMax((int) ($proofFile['size'] ?? 0))) {
@@ -755,8 +753,7 @@ class ControllerDashboardModeration
         if (!is_dir($proofUploadDir)) {
             mkdir($proofUploadDir, 0755, true);
         }
-        $proofExtMap = ['image/jpeg' => 'jpg', 'image/png' => 'png', 'image/gif' => 'gif', 'image/webp' => 'webp'];
-        $proofExt = $proofExtMap[$proofMime] ?? 'jpg';
+        $proofExt = \Src\classes\ClassImageUpload::extensionForMime($proofMime);
         $proofFilename = 'proof_' . $user['id'] . '_' . time() . '.' . $proofExt;
         $proofAbsolutePath = $proofUploadDir . $proofFilename;
         if (!move_uploaded_file((string) $proofFile['tmp_name'], $proofAbsolutePath)) {

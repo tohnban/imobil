@@ -222,7 +222,7 @@ class ClassSEO
             return $image;
         }
 
-        return rtrim(DIRPAGE, '/') . '/' . ltrim($image, '/');
+        return ClassMediaUrl::propertyImage($image);
     }
 
     public static function excerptFromText(?string $text, int $maxLength = 160): string

@@ -76,6 +76,14 @@ return [
         'middleware' => ['auth'],
     ],
 
+    // --- Imagens públicas (perfil e imóveis) ---
+    [
+        'path' => 'media/serve',
+        'controller' => 'ControllerMedia',
+        'action' => 'serve',
+        'methods' => ['GET'],
+    ],
+
     // --- API ---
     [
         'path' => 'api',

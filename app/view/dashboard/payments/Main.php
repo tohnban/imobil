@@ -130,22 +130,7 @@ function paymentsTabUrl(string $tab, int $targetPage = 1, string $section = ''):
                         <?php foreach ($pendingTrust as $trustUser): ?>
                             <?php
                                 $proofPath = trim((string) ($trustUser['trust_badge_payment_proof'] ?? ''));
-                                $proofUrl = '';
-                                if ($proofPath !== '') {
-                                    if (strpos($proofPath, 'http://') === 0 || strpos($proofPath, 'https://') === 0) {
-                                        $proofUrl = $proofPath;
-                                    } else {
-                                        $normalizedProof = ltrim(str_replace('\\', '/', $proofPath), '/');
-                                        if (strpos($normalizedProof, 'storage/uploads/') === 0) {
-                                            $normalizedProof = 'public/' . $normalizedProof;
-                                        }
-                                        if (strpos($normalizedProof, 'public/storage/uploads/trust_badge_proofs/') === 0) {
-                                            $proofUrl = DIRPAGE . 'file/serve?path=' . rawurlencode($normalizedProof);
-                                        } else {
-                                            $proofUrl = DIRPAGE . $normalizedProof;
-                                        }
-                                    }
-                                }
+                                $proofUrl = $proofPath !== '' ? \Src\classes\ClassMediaUrl::proof($proofPath) : '';
                                 $feePaid = !empty($trustUser['trust_badge_fee_paid']);
                             ?>
                             <tr data-focus-user-id="<?php echo (int) ($trustUser['id'] ?? 0); ?>">
@@ -243,18 +228,7 @@ function paymentsTabUrl(string $tab, int $targetPage = 1, string $section = ''):
                                 <td>
                                     <?php
                                         $proofPath = trim((string) ($boost['payment_proof'] ?? ''));
-                                        $proofUrl = '';
-                                        if ($proofPath !== '') {
-                                            $normalizedProof = ltrim(str_replace('\\', '/', $proofPath), '/');
-                                            if (strpos($normalizedProof, 'storage/uploads/') === 0) {
-                                                $normalizedProof = 'public/' . $normalizedProof;
-                                            }
-                                            if (strpos($normalizedProof, 'public/storage/uploads/boost_proofs/') === 0) {
-                                                $proofUrl = DIRPAGE . 'file/serve?path=' . rawurlencode($normalizedProof);
-                                            } else {
-                                                $proofUrl = DIRPAGE . $normalizedProof;
-                                            }
-                                        }
+                                        $proofUrl = $proofPath !== '' ? \Src\classes\ClassMediaUrl::proof($proofPath) : '';
                                     ?>
                                     <?php if ($proofUrl !== ''): ?>
                                         <a href="<?php echo htmlspecialchars($proofUrl); ?>" target="_blank" rel="noopener" class="moderation-proof-link" title="Abrir comprovativo">
@@ -619,22 +593,7 @@ function paymentsTabUrl(string $tab, int $targetPage = 1, string $section = ''):
                     <?php foreach ($subscriptionTransactions as $tx): ?>
                         <?php
                             $proofPath = trim((string) ($tx['proof_file'] ?? ''));
-                            $proofUrl = '';
-                            if ($proofPath !== '') {
-                                if (strpos($proofPath, 'http://') === 0 || strpos($proofPath, 'https://') === 0) {
-                                    $proofUrl = $proofPath;
-                                } else {
-                                    $normalizedProof = ltrim(str_replace('\\', '/', $proofPath), '/');
-                                    if (strpos($normalizedProof, 'storage/uploads/') === 0) {
-                                        $normalizedProof = 'public/' . $normalizedProof;
-                                    }
-                                    if (strpos($normalizedProof, 'public/storage/uploads/subscription_proofs/') === 0) {
-                                        $proofUrl = DIRPAGE . 'file/serve?path=' . rawurlencode($normalizedProof);
-                                    } else {
-                                        $proofUrl = DIRPAGE . $normalizedProof;
-                                    }
-                                }
-                            }
+                            $proofUrl = $proofPath !== '' ? \Src\classes\ClassMediaUrl::proof($proofPath) : '';
                             $isPending = in_array((string) ($tx['status'] ?? ''), ['pendente', 'processando'], true);
                         ?>
                         <tr>
