@@ -68,7 +68,7 @@ function Copy-TreeFiltered {
     }
 }
 
-Write-Host "=== Imobil — Pacote de deploy ===" -ForegroundColor Cyan
+Write-Host "=== Imobil - Pacote de deploy ===" -ForegroundColor Cyan
 Write-Host "Origem:  $repoRoot"
 Write-Host "Destino: $OutputDir"
 
@@ -155,7 +155,7 @@ if (-not $SkipComposer) {
 
 # LEIA-ME no pacote
 $readme = @"
-IMOBIL — PACOTE DE PRODUCAO
+IMOBIL - PACOTE DE PRODUCAO
 ===========================
 
 1. Envie TODO o conteudo desta pasta para o servidor (public_html ou htdocs).
