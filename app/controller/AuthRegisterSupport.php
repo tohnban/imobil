@@ -3,6 +3,7 @@
 namespace App\controller;
 
 use Src\classes\AuthRegisterFeedback;
+use Src\classes\UploadLimits;
 
 trait AuthRegisterSupport
 {
@@ -40,9 +41,8 @@ trait AuthRegisterSupport
             return ['path' => null, 'error' => 'Arquivo de foto de perfil inválido.'];
         }
 
-        $maxBytes = 512 * 1024;
-        if ((int) ($profilePhoto['size'] ?? 0) > $maxBytes) {
-            return ['path' => null, 'error' => 'A foto de perfil deve ter no máximo 512 KB.'];
+        if (UploadLimits::exceedsServerMax((int) ($profilePhoto['size'] ?? 0))) {
+            return ['path' => null, 'error' => UploadLimits::serverMaxError('A foto de perfil')];
         }
 
         $finfo = finfo_open(FILEINFO_MIME_TYPE);

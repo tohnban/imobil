@@ -1,5 +1,26 @@
 // Shared script loaded by all pages. Keep every feature defensive.
 (function () {
+    var imobilUploadLimits = window.ImobilUploadLimits || {};
+    var UPLOAD_TARGET = imobilUploadLimits.target || {};
+    var UPLOAD_SERVER_MAX = imobilUploadLimits.serverMaxBytes || (3 * 1024 * 1024);
+    var UPLOAD_TARGET_PROFILE = UPLOAD_TARGET.profilePhoto || (512 * 1024);
+    var UPLOAD_TARGET_PROOF = UPLOAD_TARGET.imageProof || (512 * 1024);
+    var UPLOAD_TARGET_PROPERTY = UPLOAD_TARGET.propertyImage || (2 * 1024 * 1024);
+    var UPLOAD_TARGET_DOCUMENT = UPLOAD_TARGET.document || (3 * 1024 * 1024);
+    var UPLOAD_TARGET_CHAT = UPLOAD_TARGET.chatAttachment || (512 * 1024);
+    var formatUploadBytes = imobilUploadLimits.formatBytesShort || function (bytes) {
+        bytes = Number(bytes) || 0;
+        if (bytes >= 1024 * 1024) {
+            var mb = bytes / (1024 * 1024);
+            var rounded = Math.round(mb * 10) / 10;
+            return (Math.abs(rounded - Math.round(rounded)) < 0.05 ? String(Math.round(rounded)) : String(rounded).replace('.', ',')) + ' MB';
+        }
+        return String(Math.max(1, Math.round(bytes / 1024))) + ' KB';
+    };
+    var formatUploadTarget = imobilUploadLimits.formatTargetLabel || function (key) {
+        return formatUploadBytes(UPLOAD_TARGET[key] || UPLOAD_SERVER_MAX);
+    };
+
     function setCookie(name, value, days) {
         var maxAge = Math.max(1, (days || 180) * 24 * 60 * 60);
         var cookie = name + '=' + encodeURIComponent(value) + '; path=/; max-age=' + maxAge + '; samesite=lax';
@@ -875,7 +896,7 @@
         var selectedFiles = [];
         var canSyncFileList = false;
         var isProcessingPropertyImages = false;
-        var propertyImageTargetBytes = 2 * 1024 * 1024;
+        var propertyImageTargetBytes = UPLOAD_TARGET_PROPERTY;
         var propertyImageMaxDimension = 1920;
 
         function createFileTransfer() {
@@ -1060,6 +1081,34 @@
             }
         }
 
+        function showPropertySubmitFeedback(message, tone) {
+            var feedback = document.getElementById('property-create-form-feedback');
+            if (!feedback) {
+                return;
+            }
+
+            var text = String(message || '').trim();
+            if (!text) {
+                feedback.textContent = '';
+                feedback.hidden = true;
+                feedback.classList.remove('auth-message-error', 'auth-message-success');
+                return;
+            }
+
+            feedback.textContent = text;
+            feedback.hidden = false;
+            feedback.classList.remove('auth-message-error', 'auth-message-success');
+            if (tone === 'error') {
+                feedback.classList.add('auth-message-error');
+            } else if (tone === 'success') {
+                feedback.classList.add('auth-message-success');
+            }
+
+            if (typeof feedback.scrollIntoView === 'function') {
+                feedback.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            }
+        }
+
         function renderProcessingMessage(message, isError) {
             previewContainer.innerHTML = '';
             var note = document.createElement('small');
@@ -1067,8 +1116,19 @@
             note.textContent = message;
             if (isError) {
                 note.style.color = '#a11c2f';
+                showPropertySubmitFeedback(message, 'error');
+            } else {
+                showPropertySubmitFeedback('', '');
             }
             previewContainer.appendChild(note);
+        }
+
+        function enablePropertyLocationFieldsForSubmit() {
+            var countrySelect = propertyForm ? propertyForm.querySelector('#country_id') : null;
+            var regionSelect = propertyForm ? propertyForm.querySelector('#region_id') : null;
+            if (regionSelect && countrySelect && countrySelect.value !== '') {
+                regionSelect.disabled = false;
+            }
         }
 
         function loadImageFromFile(file) {
@@ -1180,29 +1240,88 @@
             return output;
         }
 
+        function ensureGalleryFilesReadyForSubmit() {
+            syncManifest();
+            rebuildSelectedFilesFromGallery();
+
+            var newFilesInGallery = gallery.filter(function (item) { return item.kind === 'new'; }).length;
+            if (newFilesInGallery === 0) {
+                return true;
+            }
+
+            if (!canSyncFileList) {
+                var nativeCount = imageInput.files ? imageInput.files.length : 0;
+                return nativeCount >= newFilesInGallery;
+            }
+
+            if (!syncInputFiles()) {
+                return false;
+            }
+
+            return !!(imageInput.files && imageInput.files.length >= newFilesInGallery);
+        }
+
+        var propertyFormNativeSubmit = false;
+        var propertySubmitButton = null;
+        var propertySubmitButtonDefaultLabel = '';
+
         var propertyForm = imageInput.form;
         if (propertyForm) {
+            propertySubmitButton = propertyForm.querySelector('button[type="submit"]');
+            if (propertySubmitButton) {
+                propertySubmitButtonDefaultLabel = propertySubmitButton.textContent || '';
+            }
+
             propertyForm.addEventListener('submit', function (event) {
+                if (propertyFormNativeSubmit) {
+                    return;
+                }
+
+                event.preventDefault();
+                showPropertySubmitFeedback('', '');
+
                 if (isProcessingPropertyImages) {
-                    event.preventDefault();
                     renderProcessingMessage('Aguarde: as imagens ainda estão a ser convertidas para WebP.', true);
                     return;
                 }
 
+                if (typeof propertyForm.checkValidity === 'function' && !propertyForm.checkValidity()) {
+                    propertyForm.reportValidity();
+                    return;
+                }
+
                 if (!isEditForm && gallery.length === 0) {
-                    event.preventDefault();
                     renderProcessingMessage('Adicione pelo menos 1 imagem do imóvel.', true);
+                    if (imageInput && typeof imageInput.focus === 'function') {
+                        imageInput.focus();
+                    }
                     return;
                 }
 
                 if (isEditForm && gallery.length === 0) {
-                    event.preventDefault();
                     renderProcessingMessage('Mantenha pelo menos uma imagem no anúncio.', true);
                     return;
                 }
 
-                syncManifest();
-                rebuildSelectedFilesFromGallery();
+                if (!ensureGalleryFilesReadyForSubmit()) {
+                    renderProcessingMessage(
+                        canSyncFileList
+                            ? 'Não foi possível preparar as imagens para envio. Tente adicionar novamente.'
+                            : 'Seu navegador não permite enviar as imagens convertidas. Tente outro navegador ou dispositivo.',
+                        true
+                    );
+                    return;
+                }
+
+                enablePropertyLocationFieldsForSubmit();
+
+                if (propertySubmitButton) {
+                    propertySubmitButton.disabled = true;
+                    propertySubmitButton.textContent = 'A enviar...';
+                }
+
+                propertyFormNativeSubmit = true;
+                propertyForm.submit();
             });
         }
 
@@ -1257,7 +1376,9 @@
                 renderProcessingMessage(String(error && error.message ? error.message : 'Falha ao processar imagens.'), true);
             } finally {
                 isProcessingPropertyImages = false;
-                imageInput.value = '';
+                if (!gallery.length) {
+                    imageInput.value = '';
+                }
             }
         });
 
@@ -1333,7 +1454,7 @@
         var photoFeedback = document.getElementById('register-photo-feedback');
         var profileForm = profileInput ? profileInput.form : null;
         var isProcessingPhoto = false;
-        var maxProfilePhotoBytes = 512 * 1024;
+        var maxProfilePhotoBytes = UPLOAD_TARGET_PROFILE;
         var maxProfileDimension = 1600;
 
         function setPhotoFeedback(message, tone) {
@@ -1450,7 +1571,7 @@
                 return bestBlob;
             }
 
-            throw new Error('Não foi possível reduzir a imagem para até 512 KB. Tente outra foto.');
+            throw new Error('Não foi possível reduzir a imagem para até ' + formatUploadTarget('profilePhoto') + '. Escolha outro ficheiro de até ' + formatUploadBytes(UPLOAD_SERVER_MAX) + '.');
         }
 
         function syncProfileInputFile(file) {
@@ -1483,7 +1604,7 @@
             var file = profileInput.files && profileInput.files[0] ? profileInput.files[0] : null;
             if (!file) {
                 resetPreview();
-                setPhotoFeedback('Pode abrir vários formatos de imagem. Antes do envio, a foto será convertida para JPG e ajustada para até 512 KB.', '');
+                setPhotoFeedback('Imagem (JPG, PNG, etc.), até ' + formatUploadBytes(UPLOAD_SERVER_MAX) + '.', '');
                 return;
             }
 
@@ -1494,7 +1615,7 @@
             }
 
             isProcessingPhoto = true;
-            setPhotoFeedback('A processar a imagem para JPG e 512 KB...', '');
+            setPhotoFeedback('A processar...', '');
 
             try {
                 var optimizedBlob = await convertToOptimizedJpeg(file);
@@ -1524,7 +1645,7 @@
                 };
                 reader.readAsDataURL(optimizedFile);
 
-                setPhotoFeedback('JPG, até 512 KB.', '');
+                setPhotoFeedback('', '');
             } catch (error) {
                 resetPreview();
                 profileInput.value = '';
@@ -1595,7 +1716,7 @@
         var proofMeta = document.getElementById('proofPreviewMeta');
         var proofFb = document.getElementById('proofFeedback');
         var isProcessingProof = false;
-        var proofMaxBytes = 512 * 1024;
+        var proofMaxBytes = UPLOAD_TARGET_PROOF;
         var proofMaxDim = 1920;
 
         function fmtKz(v) {
@@ -1695,7 +1816,7 @@
             }
 
             if (last && last.size <= proofMaxBytes) { return last; }
-            throw new Error('Não foi possível reduzir o comprovativo para 512 KB. Tente outra imagem.');
+            throw new Error('Não foi possível reduzir o comprovativo para até ' + formatUploadTarget('imageProof') + '. Escolha outro ficheiro de até ' + formatUploadBytes(UPLOAD_SERVER_MAX) + '.');
         }
 
         if (sel && tot) {
@@ -1733,7 +1854,7 @@
             hideProofPreview();
 
             if (!file) {
-                setProofFeedback('Formatos: JPG, PNG, WebP e outros. Máximo 512 KB. A imagem será otimizada antes de enviar.', '');
+                setProofFeedback('JPG, PNG ou WebP, até ' + formatUploadBytes(UPLOAD_SERVER_MAX) + '.', '');
                 return;
             }
             if (!file.type || file.type.indexOf('image/') !== 0) {
@@ -1743,7 +1864,7 @@
             }
 
             isProcessingProof = true;
-            setProofFeedback('A converter e otimizar o comprovativo...', '');
+            setProofFeedback('A processar...', '');
 
             try {
                 var optimized = await convertProofToWebp(file);
@@ -1762,7 +1883,7 @@
                 };
                 reader.readAsDataURL(outFile);
 
-                setProofFeedback('Comprovativo otimizado em WebP (' + Math.round(outFile.size / 1024) + ' KB).', 'success');
+                setProofFeedback('✓ ' + outFile.name + ' (' + Math.round(outFile.size / 1024) + ' KB)', 'success');
             } catch (err) {
                 hideProofPreview();
                 proofInput.value = '';
@@ -1785,7 +1906,7 @@
         var proofMeta    = document.getElementById('boostProofPreviewMeta');
         var proofFb      = document.getElementById('boostProofFeedback');
         var isProcessing = false;
-        var maxBytes     = 512 * 1024;
+        var maxBytes     = UPLOAD_TARGET_PROOF;
         var maxDim       = 1920;
 
         function fmtKz(v) {
@@ -1870,7 +1991,7 @@
                 h = Math.max(320, Math.floor(h * ratio));
             }
             if (last && last.size <= maxBytes) { return last; }
-            throw new Error('Não foi possível reduzir o comprovativo para 512 KB. Tente outra imagem.');
+            throw new Error('Não foi possível reduzir o comprovativo para até ' + formatUploadTarget('imageProof') + '. Escolha outro ficheiro de até ' + formatUploadBytes(UPLOAD_SERVER_MAX) + '.');
         }
 
         // Update form action when property changes.
@@ -1904,10 +2025,10 @@
         proofInput.addEventListener('change', async function () {
             var file = proofInput.files && proofInput.files[0] ? proofInput.files[0] : null;
             hidePreview();
-            if (!file) { setFeedback('Formatos: JPG, PNG, WebP e outros. Máximo 512 KB. A imagem será otimizada antes de enviar.', ''); return; }
+            if (!file) { setFeedback('JPG, PNG ou WebP, até ' + formatUploadBytes(UPLOAD_SERVER_MAX) + '.', ''); return; }
             if (!file.type || file.type.indexOf('image/') !== 0) { setFeedback('Selecione um ficheiro de imagem válido.', 'error'); proofInput.value = ''; return; }
             isProcessing = true;
-            setFeedback('A converter e otimizar o comprovativo...', '');
+            setFeedback('A processar...', '');
             try {
                 var optimized = await convertToWebp(file);
                 var baseName = (file.name || 'comprovativo').replace(/\.[^.]+$/, '').replace(/[^a-zA-Z0-9_-]/g, '_');
@@ -1918,7 +2039,7 @@
                     showPreview(outFile.name, outFile.size, String(ev.target && ev.target.result ? ev.target.result : ''));
                 };
                 reader.readAsDataURL(outFile);
-                setFeedback('Comprovativo otimizado em WebP (' + Math.round(outFile.size / 1024) + ' KB).', 'success');
+                setFeedback('✓ ' + outFile.name + ' (' + Math.round(outFile.size / 1024) + ' KB)', 'success');
             } catch (err) {
                 hidePreview();
                 proofInput.value = '';
@@ -3249,10 +3370,164 @@
         }, 2600);
     }());
 
-    // Registration page: user-type toggle and document file-size validation.
+    var isRegisterDocumentProcessing = false;
+
+    // Registration page: user-type toggle and document upload optimisation.
     (function () {
         var userTypeSelect = document.getElementById('user_type');
         var docFileInput = document.getElementById('document_file');
+        var maxDocumentBytes = UPLOAD_TARGET_DOCUMENT;
+        var uploadServerMaxBytes = UPLOAD_SERVER_MAX;
+        var maxDocumentDimension = 2400;
+        var documentFeedback = document.getElementById('document_file_feedback');
+        var registerForm = document.getElementById('registerForm');
+
+        function setDocumentFeedback(message, tone) {
+            if (!documentFeedback) {
+                return;
+            }
+
+            documentFeedback.textContent = message || '';
+            documentFeedback.classList.remove('is-match', 'is-mismatch');
+            if (tone === 'success') {
+                documentFeedback.classList.add('is-match');
+            } else if (tone === 'error') {
+                documentFeedback.classList.add('is-mismatch');
+            }
+        }
+
+        function createDocumentTransfer() {
+            if (typeof DataTransfer === 'function') {
+                try {
+                    return new DataTransfer();
+                } catch (error) {
+                    return null;
+                }
+            }
+
+            return null;
+        }
+
+        function syncDocumentInputFile(file) {
+            if (!docFileInput) {
+                return false;
+            }
+
+            var transfer = createDocumentTransfer();
+            if (!transfer || !transfer.items || typeof transfer.items.add !== 'function') {
+                return false;
+            }
+
+            transfer.items.add(file);
+            docFileInput.files = transfer.files;
+            return true;
+        }
+
+        function loadDocumentImage(file) {
+            return new Promise(function (resolve, reject) {
+                var reader = new FileReader();
+                reader.onerror = function () {
+                    reject(new Error('Não foi possível ler a imagem seleccionada.'));
+                };
+                reader.onload = function (event) {
+                    var image = new Image();
+                    image.onerror = function () {
+                        reject(new Error('Não foi possível processar o formato desta imagem.'));
+                    };
+                    image.onload = function () {
+                        resolve(image);
+                    };
+                    image.src = String(event.target && event.target.result ? event.target.result : '');
+                };
+                reader.readAsDataURL(file);
+            });
+        }
+
+        function canvasToDocumentJpegBlob(canvas, quality) {
+            return new Promise(function (resolve, reject) {
+                canvas.toBlob(function (blob) {
+                    if (!blob) {
+                        reject(new Error('Falha ao gerar imagem JPG.'));
+                        return;
+                    }
+                    resolve(blob);
+                }, 'image/jpeg', quality);
+            });
+        }
+
+        async function convertDocumentImageToJpeg(file) {
+            var image = await loadDocumentImage(file);
+            var width = image.naturalWidth || image.width;
+            var height = image.naturalHeight || image.height;
+
+            if (width <= 0 || height <= 0) {
+                throw new Error('Dimensões da imagem inválidas.');
+            }
+
+            if (width > maxDocumentDimension || height > maxDocumentDimension) {
+                var dimensionScale = Math.min(maxDocumentDimension / width, maxDocumentDimension / height);
+                width = Math.max(320, Math.floor(width * dimensionScale));
+                height = Math.max(320, Math.floor(height * dimensionScale));
+            }
+
+            var qualities = [0.92, 0.86, 0.8, 0.74, 0.68, 0.62, 0.56, 0.5, 0.44, 0.38];
+            var bestBlob = null;
+
+            for (var round = 0; round < 5; round++) {
+                var canvas = document.createElement('canvas');
+                canvas.width = width;
+                canvas.height = height;
+                var ctx = canvas.getContext('2d');
+                if (!ctx) {
+                    throw new Error('Não foi possível preparar o processamento da imagem.');
+                }
+
+                ctx.drawImage(image, 0, 0, width, height);
+
+                for (var i = 0; i < qualities.length; i++) {
+                    var candidate = await canvasToDocumentJpegBlob(canvas, qualities[i]);
+                    bestBlob = candidate;
+                    if (candidate.size <= maxDocumentBytes) {
+                        return candidate;
+                    }
+                }
+
+                if (!bestBlob) {
+                    break;
+                }
+
+                var ratio = Math.sqrt(maxDocumentBytes / bestBlob.size) * 0.95;
+                if (!isFinite(ratio) || ratio >= 0.98) {
+                    break;
+                }
+
+                width = Math.max(320, Math.floor(width * ratio));
+                height = Math.max(320, Math.floor(height * ratio));
+            }
+
+            if (bestBlob && bestBlob.size <= maxDocumentBytes) {
+                return bestBlob;
+            }
+
+            throw new Error('Não foi possível reduzir a imagem para até ' + formatUploadTarget('document') + '. Escolha outro ficheiro de até ' + formatUploadBytes(UPLOAD_SERVER_MAX) + '.');
+        }
+
+        function formatDocumentSize(bytes) {
+            if (bytes >= 1024 * 1024) {
+                return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+            }
+
+            return Math.max(1, Math.round(bytes / 1024)) + ' KB';
+        }
+
+        function isPdfFile(file) {
+            var name = String(file.name || '').toLowerCase();
+            return file.type === 'application/pdf' || name.slice(-4) === '.pdf';
+        }
+
+        function isImageFile(file) {
+            return file.type && file.type.indexOf('image/') === 0;
+        }
 
         function syncRegisterDocumentFields(type) {
             var identificationSection = document.getElementById('register-identification');
@@ -3340,37 +3615,83 @@
             syncRegisterDocumentFields(userTypeSelect.value);
         }
 
+        if (registerForm) {
+            registerForm.addEventListener('submit', function (event) {
+                if (!isRegisterDocumentProcessing) {
+                    return;
+                }
+
+                event.preventDefault();
+                setDocumentFeedback('Aguarde o processamento do documento terminar para concluir o envio.', 'error');
+            });
+        }
+
         if (docFileInput) {
             var fileNameEl = document.getElementById('document_file_name');
-            docFileInput.addEventListener('change', function () {
-                var maxSize = 1 * 1024 * 1024;
-                var errorEl = document.getElementById('doc-file-size-error');
-                if (!errorEl) {
-                    errorEl = document.createElement('p');
-                    errorEl.id = 'doc-file-size-error';
-                    errorEl.className = 'field-error-inline';
-                    errorEl.setAttribute('role', 'alert');
-                    var fileRow = docFileInput.closest('.auth-register-file-row');
-                    if (fileRow) {
-                        fileRow.parentNode.insertBefore(errorEl, fileRow.nextSibling);
+            docFileInput.addEventListener('change', async function () {
+                var file = docFileInput.files && docFileInput.files[0] ? docFileInput.files[0] : null;
+
+                if (!file) {
+                    if (fileNameEl) {
+                        fileNameEl.textContent = 'Nenhum ficheiro seleccionado';
                     }
+                    setDocumentFeedback('PDF ou JPG/PNG, até ' + formatUploadBytes(UPLOAD_SERVER_MAX) + '.', '');
+                    return;
                 }
-                if (docFileInput.files[0] && docFileInput.files[0].size > maxSize) {
-                    errorEl.textContent = 'O ficheiro excede o tamanho máximo de 1 MB.';
-                    errorEl.hidden = false;
+
+                if (!isPdfFile(file) && !isImageFile(file)) {
                     docFileInput.value = '';
                     if (fileNameEl) {
                         fileNameEl.textContent = 'Nenhum ficheiro seleccionado';
                     }
-                    docFileInput.focus();
-                } else {
-                    errorEl.textContent = '';
-                    errorEl.hidden = true;
-                    if (fileNameEl) {
-                        fileNameEl.textContent = docFileInput.files[0]
-                            ? docFileInput.files[0].name
-                            : 'Nenhum ficheiro seleccionado';
+                    setDocumentFeedback('Seleccione um PDF ou uma imagem JPG/PNG.', 'error');
+                    return;
+                }
+
+                if (isPdfFile(file)) {
+                    if (file.size > uploadServerMaxBytes) {
+                        docFileInput.value = '';
+                        if (fileNameEl) {
+                            fileNameEl.textContent = 'Nenhum ficheiro seleccionado';
+                        }
+                        setDocumentFeedback('O PDF excede ' + formatUploadBytes(UPLOAD_SERVER_MAX) + '. Escolha um ficheiro de até ' + formatUploadBytes(UPLOAD_SERVER_MAX) + '.', 'error');
+                        return;
                     }
+
+                    if (fileNameEl) {
+                        fileNameEl.textContent = file.name + ' (' + formatDocumentSize(file.size) + ')';
+                    }
+                    setDocumentFeedback('PDF pronto.', 'success');
+                    return;
+                }
+
+                isRegisterDocumentProcessing = true;
+                setDocumentFeedback('A processar...', '');
+
+                try {
+                    var optimizedBlob = await convertDocumentImageToJpeg(file);
+                    var safeNameBase = (file.name || 'documento_identificacao').replace(/\.[^.]+$/, '').replace(/[^a-zA-Z0-9_-]/g, '_');
+                    var optimizedFile = new File([optimizedBlob], safeNameBase + '.jpg', {
+                        type: 'image/jpeg',
+                        lastModified: Date.now()
+                    });
+
+                    if (!syncDocumentInputFile(optimizedFile)) {
+                        throw new Error('O seu navegador não permite substituir o ficheiro antes do envio.');
+                    }
+
+                    if (fileNameEl) {
+                        fileNameEl.textContent = optimizedFile.name + ' (' + formatDocumentSize(optimizedFile.size) + ')';
+                    }
+                    setDocumentFeedback('', 'success');
+                } catch (error) {
+                    docFileInput.value = '';
+                    if (fileNameEl) {
+                        fileNameEl.textContent = 'Nenhum ficheiro seleccionado';
+                    }
+                    setDocumentFeedback(String(error && error.message ? error.message : 'Falha ao processar o documento.'), 'error');
+                } finally {
+                    isRegisterDocumentProcessing = false;
                 }
             });
         }
@@ -3702,8 +4023,8 @@
                         return;
                     }
                     var proofFile = proofField.files[0];
-                    if (proofFile && (proofFile.size || 0) > (512 * 1024)) {
-                        window.alert('O comprovativo deve ter no máximo 512 KB após otimização. Aguarde o processamento ou escolha outra imagem.');
+                    if (proofFile && (proofFile.size || 0) > UPLOAD_SERVER_MAX) {
+                        window.alert('O comprovativo excede ' + formatUploadBytes(UPLOAD_SERVER_MAX) + '. Aguarde o processamento ou escolha outra imagem.');
                         return;
                     }
                 }
@@ -4620,11 +4941,11 @@
         if (activeModalId) { window.docModalClose(activeModalId); }
     });
 
-    // Request chat / solicitações: otimizar anexos de imagem para WebP (máx. 512 KB), igual ao pipeline do chat.
+    // Request chat / solicitações: otimizar anexos de imagem para WebP, igual ao pipeline do chat.
     (function initRequestAttachmentWebpOptimizer() {
-        var maxBytes = 512 * 1024;
+        var maxBytes = UPLOAD_TARGET_CHAT;
         var maxDim = 1920;
-        var defaultHint = 'Formatos: JPG, PNG, WebP, GIF e outros. Máximo 512 KB após otimização.';
+        var defaultHint = 'JPG, PNG, GIF ou WebP, até ' + formatUploadBytes(UPLOAD_SERVER_MAX) + '.';
 
         function setFeedback(el, msg, tone) {
             if (!el) {
@@ -4736,7 +5057,7 @@
                 return last;
             }
 
-            throw new Error('Não foi possível reduzir a imagem para 512 KB. Tente outra foto.');
+            throw new Error('Não foi possível reduzir a imagem para até ' + formatUploadTarget('chatAttachment') + '. Escolha outro ficheiro de até ' + formatUploadBytes(UPLOAD_SERVER_MAX) + '.');
         }
 
         function bindRequestAttachmentOptimizer(input, feedbackEl) {
@@ -4755,7 +5076,7 @@
                         return;
                     }
                     ev.preventDefault();
-                    setFeedback(feedbackEl, 'Aguarde: a imagem ainda está a ser otimizada.', 'error');
+                    setFeedback(feedbackEl, 'Aguarde o processamento.', 'error');
                 });
             }
 
@@ -4774,7 +5095,7 @@
                 }
 
                 isProcessing = true;
-                setFeedback(feedbackEl, 'A converter e otimizar a imagem...', '');
+                setFeedback(feedbackEl, 'A processar...', '');
 
                 try {
                     var optimized = await convertAttachmentToWebp(file);
@@ -5396,6 +5717,15 @@
 
         form.addEventListener('submit', function (event) {
             var firstInvalid = null;
+            if (isRegisterDocumentProcessing) {
+                event.preventDefault();
+                var documentFeedback = document.getElementById('document_file_feedback');
+                if (documentFeedback) {
+                    documentFeedback.textContent = 'Aguarde o processamento do documento terminar para concluir o envio.';
+                    documentFeedback.classList.add('is-mismatch');
+                }
+                return;
+            }
 
             [nameInput, emailInput, phoneInput, passwordInput, passwordConfirmInput, userTypeSelect].forEach(function (field) {
                 if (field) {
@@ -5441,6 +5771,14 @@
             if (documentFileInput && documentFileInput.required && !documentFileInput.files.length) {
                 documentFileInput.setCustomValidity('Envie o documento de identificação.');
                 firstInvalid = firstInvalid || documentFileInput;
+            }
+
+            if (documentFileInput && documentFileInput.files.length) {
+                var documentFile = documentFileInput.files[0];
+                if ((documentFile.size || 0) > UPLOAD_SERVER_MAX) {
+                    documentFileInput.setCustomValidity('O documento deve ter no máximo ' + formatUploadBytes(UPLOAD_SERVER_MAX) + '.');
+                    firstInvalid = firstInvalid || documentFileInput;
+                }
             }
 
             if (emailInput) {

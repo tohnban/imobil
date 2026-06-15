@@ -120,7 +120,7 @@ $overdueCommissionBannerHref = (string) ($overdueCommission['action_href'] ?? DI
 
     <link rel="preconnect" href="https://i.ytimg.com" crossorigin>
     <link rel="preconnect" href="https://www.youtube-nocookie.com">
-    <link rel="stylesheet" href="<?php echo DIRCSS.'Style.css?v=20260610q'?>">
+    <link rel="stylesheet" href="<?php echo DIRCSS.'Style.css?v=20260615b'?>">
     <link rel="stylesheet" href="<?php echo DIRPAGE; ?>public/vendor/font-awesome/css/font-awesome.min.css?v=4.7.0">
 </head>
 <body class="<?php
@@ -480,6 +480,7 @@ $overdueCommissionBannerHref = (string) ($overdueCommission['action_href'] ?? DI
         </div>
     </div>
 </section>
-<script src="<?php echo DIRJS.'script.js?v=20260610f'?>"></script>
+<script src="<?php echo DIRJS.'upload-limits.js?v=20260612a'?>"></script>
+<script src="<?php echo DIRJS.'script.js?v=20260615b'?>"></script>
 </body>
 </html>             

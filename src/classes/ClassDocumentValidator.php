@@ -10,8 +10,6 @@ namespace Src\classes;
  */
 class ClassDocumentValidator
 {
-    // File constraints
-    public const MAX_FILE_SIZE = 1 * 1024 * 1024; // 1 MB
     public const ALLOWED_EXTENSIONS = ['pdf', 'jpg', 'jpeg', 'png'];
     public const ALLOWED_MIME_TYPES = ['application/pdf', 'image/jpeg', 'image/png'];
 
@@ -20,6 +18,11 @@ class ClassDocumentValidator
     public const TYPE_USER_KYC = 'user_kyc';
     public const TYPE_PROPERTY_OWNERSHIP = 'property_ownership';
     public const TYPE_PROPERTY_LICENSING = 'property_licensing';
+
+    /**
+     * @deprecated Use UploadLimits::serverMaxBytes()
+     */
+    public const MAX_FILE_SIZE = UploadLimits::SERVER_MAX_BYTES;
 
     /**
      * Validate uploaded file
@@ -38,9 +41,12 @@ class ClassDocumentValidator
             return ['valid' => false, 'error' => 'Erro ao fazer upload do ficheiro'];
         }
 
-        // Check file size
-        if (($file['size'] ?? 0) > self::MAX_FILE_SIZE) {
-            return ['valid' => false, 'error' => 'O ficheiro excede o tamanho máximo de ' . (self::MAX_FILE_SIZE / 1024 / 1024) . ' MB'];
+        $maxSize = self::maxFileSizeForType($docType);
+        if (($file['size'] ?? 0) > $maxSize) {
+            return [
+                'valid' => false,
+                'error' => UploadLimits::serverMaxError('O ficheiro'),
+            ];
         }
 
         // Check file extension
@@ -107,6 +113,11 @@ class ClassDocumentValidator
         return 'v' . ($num + 1);
     }
 
+    public static function maxFileSizeForType(string $docType): int
+    {
+        return UploadLimits::serverMaxBytes();
+    }
+
     /**
      * Get validation rules by document type
      *
@@ -116,7 +127,7 @@ class ClassDocumentValidator
     public static function getRulesByType(string $docType): array
     {
         $baseRules = [
-            'max_size' => self::MAX_FILE_SIZE,
+            'max_size' => self::maxFileSizeForType($docType),
             'allowed_extensions' => self::ALLOWED_EXTENSIONS,
             'allowed_mimes' => self::ALLOWED_MIME_TYPES,
         ];

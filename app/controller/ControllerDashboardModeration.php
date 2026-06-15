@@ -12,8 +12,10 @@ use Src\classes\ClassAccess;
 use Src\classes\ClassAuth;
 use Src\classes\ClassCsrf;
 use Src\classes\ClassDocumentValidator;
+use Src\classes\UploadLimits;
 use Src\classes\ClassRender;
 use Src\classes\ClassTrustBadgeEligibility;
+use Src\classes\PhoneHelper;
 
 class ControllerDashboardModeration
 {
@@ -743,8 +745,8 @@ class ControllerDashboardModeration
             header('Location: ' . DIRPAGE . 'profile#trust-badge-section?error=Formato inválido (use JPG, PNG ou WebP)');
             exit;
         }
-        if ((int) ($proofFile['size'] ?? 0) > 512 * 1024) {
-            header('Location: ' . DIRPAGE . 'profile#trust-badge-section?error=Comprovativo demasiado grande (máx. 512 KB)');
+        if (UploadLimits::exceedsServerMax((int) ($proofFile['size'] ?? 0))) {
+            header('Location: ' . DIRPAGE . 'profile#trust-badge-section?error=' . rawurlencode(UploadLimits::serverMaxError('O comprovativo')));
             exit;
         }
 

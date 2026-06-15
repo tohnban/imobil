@@ -134,7 +134,7 @@ $documentFileRequired = $showDocumentFileField && $canSubmitAccountForm;
                     <div class="form-group account-identification-file-group">
                         <label for="document_file">Ficheiro de identificação<?php echo $documentFileRequired ? ' *' : ''; ?></label>
                         <input type="file" id="document_file" name="document_file" accept=".pdf,.jpg,.jpeg,.png"<?php echo $documentFileRequired ? ' required' : ''; ?>>
-                        <small class="dashboard-inline-note">PDF ou foto legível (JPG ou PNG), até 1 MB.</small>
+                        <small class="dashboard-inline-note">PDF ou foto legível (JPG ou PNG), até <?php echo htmlspecialchars(\Src\classes\UploadLimits::formatShort(\Src\classes\UploadLimits::SERVER_MAX_BYTES), ENT_QUOTES, 'UTF-8'); ?>.</small>
                     </div>
                     <?php elseif ($documentPendingReview): ?>
                     <div class="form-group">

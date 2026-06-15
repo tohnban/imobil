@@ -99,7 +99,7 @@ $selectedMethodId = !empty($paymentMethods) ? (int) ($paymentMethods[0]['id'] ??
                 <div class="form-group">
                     <label for="commission_payment_proof">Comprovativo de pagamento <span class="required-mark">*</span></label>
                     <input type="file" id="commission_payment_proof" name="payment_proof" class="js-request-attachment-input" accept="image/*" required>
-                    <small class="request-attachment-feedback" id="commission-payment-proof-feedback">Formatos: JPG, PNG, WebP e outros. Máximo 512 KB após otimização.</small>
+                    <small class="request-attachment-feedback" id="commission-payment-proof-feedback">JPG, PNG ou WebP, até <?php echo htmlspecialchars(\Src\classes\UploadLimits::formatShort(\Src\classes\UploadLimits::SERVER_MAX_BYTES), ENT_QUOTES, 'UTF-8'); ?>.</small>
                 </div>
 
                 <div class="sub-checkout-actions">

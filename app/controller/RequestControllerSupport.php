@@ -12,6 +12,7 @@ use App\model\RequestChatMessage;
 use Src\classes\ClassAccess;
 use Src\classes\ClassAuth;
 use Src\classes\ClassCsrf;
+use Src\classes\UploadLimits;
 
 trait RequestControllerSupport
 {
@@ -110,8 +111,8 @@ trait RequestControllerSupport
             return ['path' => null, 'error' => 'Arquivo inválido.'];
         }
 
-        if ($size <= 0 || $size > (512 * 1024)) {
-            return ['path' => null, 'error' => 'O arquivo deve ter até 512 KB.'];
+        if ($size <= 0 || UploadLimits::exceedsServerMax($size)) {
+            return ['path' => null, 'error' => UploadLimits::serverMaxError('O ficheiro')];
         }
 
         $allowedMime = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];

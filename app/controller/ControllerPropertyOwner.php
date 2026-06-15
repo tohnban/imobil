@@ -13,6 +13,7 @@ use App\model\SubscriptionPlan;
 use App\model\User;
 use Src\classes\ClassAccess;
 use Src\classes\ClassAuth;
+use Src\classes\UploadLimits;
 use Src\classes\ClassCommissionGuard;
 use Src\classes\ClassPlan;
 use Src\classes\ClassRender;
@@ -243,7 +244,7 @@ class ControllerPropertyOwner
         }
 
         $allowedMime = ['image/webp'];
-        $maxPerFile = 3 * 1024 * 1024;
+        $maxPerFile = UploadLimits::serverMaxBytes();
         $count = count($files['name']);
         $maxFiles = max(0, $maxFiles);
         $actualUploadCount = $this->countSubmittedPropertyImageUploads($files);
@@ -282,7 +283,7 @@ class ControllerPropertyOwner
             $size = (int) ($files['size'][$i] ?? 0);
 
             if ($size <= 0 || $size > $maxPerFile) {
-                $errors[] = 'Cada imagem deve ter até 3MB.';
+                $errors[] = 'Cada imagem deve ter até ' . UploadLimits::formatShort(UploadLimits::serverMaxBytes()) . '.';
                 continue;
             }
 
@@ -668,8 +669,8 @@ class ControllerPropertyOwner
             header('Location: ' . DIRPAGE . 'dashboard/myProperties?error=Formato+invalido+use+JPG+PNG+ou+WebP');
             exit;
         }
-        if ((int) ($proofFile['size'] ?? 0) > 512 * 1024) {
-            header('Location: ' . DIRPAGE . 'dashboard/myProperties?error=Comprovativo+demasiado+grande+max+512KB');
+        if (UploadLimits::exceedsServerMax((int) ($proofFile['size'] ?? 0))) {
+            header('Location: ' . DIRPAGE . 'dashboard/myProperties?error=' . rawurlencode(UploadLimits::serverMaxError('O comprovativo')));
             exit;
         }
 

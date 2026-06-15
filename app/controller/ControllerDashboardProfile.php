@@ -543,7 +543,6 @@ class ControllerDashboardProfile
         }
 
         $allowedMimes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
-        $maxSize = 2 * 1024 * 1024;
         $tmpName = (string) ($profilePhoto['tmp_name'] ?? '');
 
         if ($tmpName === '' || !is_uploaded_file($tmpName)) {
@@ -559,8 +558,8 @@ class ControllerDashboardProfile
         if (!in_array($detectedMime, $allowedMimes, true)) {
             return ['path' => null, 'error' => 'Formato de imagem inválido. Aceitos: JPG, PNG, GIF, WebP'];
         }
-        if ((int) ($profilePhoto['size'] ?? 0) > $maxSize) {
-            return ['path' => null, 'error' => 'Arquivo muito grande. Máximo 2MB'];
+        if (\Src\classes\UploadLimits::exceedsServerMax((int) ($profilePhoto['size'] ?? 0))) {
+            return ['path' => null, 'error' => \Src\classes\UploadLimits::serverMaxError('A foto de perfil')];
         }
 
         $extMap = [

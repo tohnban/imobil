@@ -222,7 +222,7 @@ $boostStatusMap = [
                         <div class="form-group property-upload-panel">
                             <label for="images">Galeria do imóvel</label>
                             <input type="file" id="images" name="images[]" accept="image/*" multiple>
-                            <small class="property-create-note">Até 8 imagens no total. Máximo 3MB por ficheiro original.</small>
+                            <small class="property-create-note">Até 8 imagens no total, JPG, PNG, WEBP ou GIF. Máx. <?php echo htmlspecialchars(\Src\classes\UploadLimits::formatShort(\Src\classes\UploadLimits::SERVER_MAX_BYTES), ENT_QUOTES, 'UTF-8'); ?> por ficheiro.</small>
                             <small class="property-create-note">A primeira miniatura é a capa do anúncio.</small>
                             <div
                                 id="property-image-preview"
@@ -255,6 +255,7 @@ $boostStatusMap = [
                 </div>
 
                 <div class="property-create-submit">
+                    <div id="property-create-form-feedback" class="auth-message property-create-form-feedback" role="alert" aria-live="polite" hidden></div>
                     <small class="property-create-note">Depois de guardar, o imóvel volta para moderação.</small>
                     <div class="dashboard-inline-actions property-create-submit-actions">
                         <a href="<?php echo DIRPAGE; ?>dashboard/myProperties" class="btn-secondary">Cancelar</a>

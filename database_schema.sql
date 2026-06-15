@@ -1,6 +1,6 @@
 -- =============================================================================
 -- Imobil — schema consolidado para fresh install
--- Estado alinhado com migrações em scripts/ e raiz até 2026-06-03 (inclusive)
+-- Estado alinhado com migrações em scripts/ e raiz até 2026-06-12 (inclusive)
 -- Bases existentes: aplicar scripts/migration_*.sql incrementalmente
 --
 -- Tabelas (ordem de dependência):
@@ -547,12 +547,13 @@ CREATE TABLE request_chat_messages (
     CONSTRAINT fk_request_chat_messages_sender FOREIGN KEY (sender_user_id) REFERENCES users(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+-- last_read_message_id: cursor de leitura por mensagem (scripts/migration_20260612_request_chat_reads_message_cursor.sql)
 CREATE TABLE request_chat_reads (
     id INT AUTO_INCREMENT PRIMARY KEY,
     thread_id INT NOT NULL,
     user_id INT NOT NULL,
     last_read_at TIMESTAMP NULL DEFAULT NULL,
-    last_read_message_id INT UNSIGNED NULL DEFAULT NULL,
+    last_read_message_id INT UNSIGNED NULL DEFAULT NULL COMMENT 'Última mensagem lida (contador de não lidas)',
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     UNIQUE KEY unique_request_chat_read_user (thread_id, user_id),
@@ -1076,12 +1077,24 @@ UNION ALL
 SELECT t.id, (SELECT id FROM users WHERE email = 'admin@imobil.com' LIMIT 1), 'system', 'Pedido marcado como fechado ganho.', DATE_SUB(NOW(), INTERVAL 10 DAY)
 FROM request_chat_threads t WHERE t.request_id = 1;
 
-INSERT INTO request_chat_reads (thread_id, user_id, last_read_at, created_at)
-SELECT t.id, u.id, DATE_SUB(NOW(), INTERVAL 1 DAY), DATE_SUB(NOW(), INTERVAL 11 DAY)
+INSERT INTO request_chat_reads (thread_id, user_id, last_read_at, last_read_message_id, created_at)
+SELECT
+    t.id,
+    u.id,
+    DATE_SUB(NOW(), INTERVAL 1 DAY),
+    (
+        SELECT COALESCE(MAX(m.id), NULL)
+        FROM request_chat_messages m
+        WHERE m.thread_id = t.id
+          AND m.deleted_at IS NULL
+    ),
+    DATE_SUB(NOW(), INTERVAL 11 DAY)
 FROM request_chat_threads t
 JOIN users u ON u.id IN (6, 2, 4)
 WHERE t.request_id = 1
-ON DUPLICATE KEY UPDATE last_read_at = VALUES(last_read_at);
+ON DUPLICATE KEY UPDATE
+    last_read_at = VALUES(last_read_at),
+    last_read_message_id = VALUES(last_read_message_id);
 
 INSERT INTO saved_searches (user_id, name, filters, search_type, search_purpose, country_id, region_id, min_price, max_price, bedrooms, trusted_only, created_at)
 SELECT

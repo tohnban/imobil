@@ -41,7 +41,7 @@
     <div class="form-group">
         <label for="payment_proof">Comprovativo de pagamento <span style="color:#c0392b;">*</span></label>
         <input type="file" id="payment_proof" name="payment_proof" accept="image/*" required>
-        <small class="dashboard-inline-note" id="proofFeedback">Formatos: JPG, PNG, WebP e outros. Máximo 512 KB. A imagem será otimizada antes de enviar.</small>
+        <small class="dashboard-inline-note" id="proofFeedback">JPG, PNG ou WebP, até <?php echo htmlspecialchars(\Src\classes\UploadLimits::formatShort(\Src\classes\UploadLimits::SERVER_MAX_BYTES), ENT_QUOTES, 'UTF-8'); ?>.</small>
         <div id="proofPreviewWrap" style="display:none;margin-top:10px;">
             <img id="proofPreview" src="" alt="Pré-visualização"
                  style="max-width:240px;max-height:180px;border-radius:6px;border:1px solid var(--border);display:block;">

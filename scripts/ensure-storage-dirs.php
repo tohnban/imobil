@@ -21,6 +21,7 @@ $directories = [
     'public/storage/uploads/commission_proofs',
     'public/storage/uploads/commission_payout_proofs',
     'public/storage/uploads/request_chat_attachments',
+    'public/storage/uploads/properties',
 ];
 
 $created = 0;

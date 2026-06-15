@@ -9,6 +9,7 @@ CREATE TABLE IF NOT EXISTS request_chat_reads (
     thread_id INT NOT NULL,
     user_id INT NOT NULL,
     last_read_at TIMESTAMP NULL DEFAULT NULL,
+    last_read_message_id INT UNSIGNED NULL DEFAULT NULL,
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     UNIQUE KEY unique_request_chat_read_user (thread_id, user_id),

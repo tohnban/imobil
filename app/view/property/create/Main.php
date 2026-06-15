@@ -168,8 +168,8 @@
                         <h3>Imagens</h3>
                         <div class="form-group property-upload-panel">
                             <label for="images">Imagens do Imóvel</label>
-                            <input type="file" id="images" name="images[]" accept="image/*" multiple required>
-                            <small class="property-create-note">Até 8 imagens. Pode enviar JPG, PNG, WEBP ou GIF. O sistema converte para WEBP automaticamente. Máximo 3MB por imagem original.</small>
+                            <input type="file" id="images" name="images[]" accept="image/*" multiple>
+                            <small class="property-create-note">Até 8 imagens, JPG, PNG, WEBP ou GIF. Máx. <?php echo htmlspecialchars(\Src\classes\UploadLimits::formatShort(\Src\classes\UploadLimits::SERVER_MAX_BYTES), ENT_QUOTES, 'UTF-8'); ?> por ficheiro.</small>
                             <small class="property-create-note">A primeira miniatura será usada como capa. Pode remover imagens ou definir outra como capa antes de enviar.</small>
                             <div id="property-image-preview" class="property-image-preview" aria-live="polite"></div>
                         </div>
@@ -197,6 +197,7 @@
                 </div>
 
                 <div class="property-create-submit">
+                    <div id="property-create-form-feedback" class="auth-message property-create-form-feedback" role="alert" aria-live="polite" hidden></div>
                     <small class="property-create-note">Revise os dados antes de publicar. O imóvel entra como pendente para moderação.</small>
                     <div class="dashboard-inline-actions property-create-submit-actions">
                         <a href="<?php echo DIRPAGE; ?>dashboard/myProperties" class="btn-secondary">Cancelar</a>

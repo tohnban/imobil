@@ -4592,6 +4592,11 @@ button {
     padding: 14px;
 }
 
+.property-create-form-feedback {
+    width: 100%;
+    margin: 0;
+}
+
 .property-create-submit button {
     min-width: 220px;
 }

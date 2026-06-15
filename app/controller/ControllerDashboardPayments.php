@@ -12,6 +12,7 @@ use App\model\SystemPaymentChannel;
 use App\model\User;
 use App\services\CommissionSettlementService;
 use Dompdf\Dompdf;
+use Src\classes\UploadLimits;
 use Dompdf\Options;
 use Src\classes\ClassAccess;
 use Src\classes\ClassAuth;
@@ -403,8 +404,8 @@ class ControllerDashboardPayments
         if ($tmpName === '' || !is_uploaded_file($tmpName)) {
             return ['path' => null, 'error' => 'Comprovativo inválido.'];
         }
-        if ($size <= 0 || $size > (512 * 1024)) {
-            return ['path' => null, 'error' => 'O comprovativo deve ter até 512 KB.'];
+        if ($size <= 0 || UploadLimits::exceedsServerMax($size)) {
+            return ['path' => null, 'error' => UploadLimits::serverMaxError('O comprovativo')];
         }
 
         $finfo = finfo_open(FILEINFO_MIME_TYPE);

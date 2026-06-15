@@ -1,4 +1,6 @@
 <?php
+use Src\classes\UploadLimits;
+
 $registerErrorCode = isset($_GET['error']) ? trim((string) $_GET['error']) : '';
 $registerErrorMessage = $registerErrorCode !== ''
     ? (\Src\classes\AuthRegisterFeedback::isKnownCode($registerErrorCode)
@@ -42,7 +44,7 @@ $registerErrorMessage = $registerErrorCode !== ''
                                 <input type="file" id="profile_photo" name="profile_photo" class="auth-register-file-native" accept="image/*" tabindex="-1">
                                 <label for="profile_photo" class="auth-photo-pick">Escolher</label>
                             </div>
-                            <small class="auth-helper-text" id="register-photo-feedback">JPG, até 512 KB.</small>
+                            <small class="auth-helper-text" id="register-photo-feedback">Imagem (JPG, PNG, etc.), até <?php echo htmlspecialchars(UploadLimits::formatShort(UploadLimits::SERVER_MAX_BYTES), ENT_QUOTES, 'UTF-8'); ?>.</small>
                         </div>
                     </div>
 
@@ -72,7 +74,7 @@ $registerErrorMessage = $registerErrorCode !== ''
                                 </label>
                                 <span class="auth-file-name auth-register-file-label" id="document_file_name">Nenhum ficheiro</span>
                             </div>
-                            <small class="auth-helper-text">PDF ou JPG/PNG, máx. 1 MB.</small>
+                            <small class="auth-helper-text" id="document_file_feedback">PDF ou JPG/PNG, até <?php echo htmlspecialchars(UploadLimits::formatShort(UploadLimits::SERVER_MAX_BYTES), ENT_QUOTES, 'UTF-8'); ?>.</small>
                         </div>
                     </div>
                 </div>

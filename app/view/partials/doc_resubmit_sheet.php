@@ -44,7 +44,7 @@ $modalId = 'resubmitModal' . $docId;
                            name="document_file"
                            accept=".pdf,.jpg,.jpeg,.png"
                            required>
-                    <small class="form-text text-muted">PDF, JPG ou PNG · máximo 1 MB</small>
+                    <small class="form-text text-muted">PDF, JPG ou PNG · máximo <?php echo htmlspecialchars(\Src\classes\UploadLimits::formatShort(\Src\classes\UploadLimits::SERVER_MAX_BYTES), ENT_QUOTES, 'UTF-8'); ?></small>
                 </div>
             </div>
             <div class="doc-modal-foot sheet-modal-foot">

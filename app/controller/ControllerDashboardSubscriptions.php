@@ -13,6 +13,7 @@ use Src\classes\ClassAccess;
 use Src\classes\ClassAuth;
 use Src\classes\ClassCsrf;
 use Src\classes\ClassRender;
+use Src\classes\UploadLimits;
 
 class ControllerDashboardSubscriptions
 {
@@ -188,8 +189,8 @@ class ControllerDashboardSubscriptions
                 exit;
             }
 
-            if ((int) ($proofFile['size'] ?? 0) > 1024 * 1024) {
-                header('Location: ' . DIRPAGE . 'dashboard/subscriptionCheckout?plan_code=' . rawurlencode($planCode) . '&error=' . rawurlencode('Comprovativo demasiado grande. Máximo: 1MB'));
+            if (UploadLimits::exceedsServerMax((int) ($proofFile['size'] ?? 0))) {
+                header('Location: ' . DIRPAGE . 'dashboard/subscriptionCheckout?plan_code=' . rawurlencode($planCode) . '&error=' . rawurlencode(UploadLimits::serverMaxError('O comprovativo')));
                 exit;
             }
 

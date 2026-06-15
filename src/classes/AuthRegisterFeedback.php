@@ -37,7 +37,7 @@ class AuthRegisterFeedback
         self::DOCUMENT_NIF_INVALID => 'O NIF de pessoa colectiva deve ter exactamente 10 dígitos.',
         self::DOCUMENT_TAKEN => 'Este número de identificação já está registado.',
         self::DOCUMENT_FILE_REQUIRED => 'Envie o documento de identificação (PDF ou imagem).',
-        self::DOCUMENT_FILE_INVALID => 'Documento inválido. Use PDF ou imagem legível até 1 MB.',
+        self::DOCUMENT_FILE_INVALID => '__dynamic_document_file_invalid__',
         self::DOCUMENT_SAVE_FAILED => 'Não foi possível guardar o documento. Tente outra vez.',
         self::EMAIL_REQUIRED => 'Indique o seu email.',
         self::EMAIL_INVALID => 'Email inválido.',
@@ -53,7 +53,13 @@ class AuthRegisterFeedback
 
     public static function message(string $code): string
     {
-        return self::MESSAGES[$code] ?? self::MESSAGES[self::CREATE_FAILED];
+        $message = self::MESSAGES[$code] ?? self::MESSAGES[self::CREATE_FAILED];
+        if ($code === self::DOCUMENT_FILE_INVALID) {
+            return 'Documento inválido. Use PDF ou imagem legível até '
+                . UploadLimits::formatShort(UploadLimits::SERVER_MAX_BYTES) . '.';
+        }
+
+        return $message;
     }
 
     public static function isKnownCode(string $code): bool

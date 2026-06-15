@@ -363,7 +363,7 @@ $boostEligible = array_filter($properties ?? [], static function ($p) use ($pend
                                                accept="image/*"
                                                required>
                                         <small class="dashboard-inline-note" id="boostProofFeedback">
-                                            JPG, PNG, WebP. Máximo 512 KB após optimização.
+                                            JPG, PNG ou WebP, até <?php echo htmlspecialchars(\Src\classes\UploadLimits::formatShort(\Src\classes\UploadLimits::SERVER_MAX_BYTES), ENT_QUOTES, 'UTF-8'); ?>.
                                         </small>
                                         <div id="boostProofPreviewWrap" class="my-properties-proof-preview" hidden>
                                             <img id="boostProofPreview" src="" alt="Pré-visualização">

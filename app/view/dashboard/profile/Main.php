@@ -53,7 +53,7 @@
                             <div class="form-group">
                                 <label for="profile_photo">Nova foto (opcional)</label>
                                 <input type="file" id="profile_photo" name="profile_photo" accept="image/jpeg,image/png,image/gif,image/webp">
-                                <small class="dashboard-inline-note">JPG, PNG, GIF ou WebP. Máximo 2 MB.</small>
+                                <small class="dashboard-inline-note">JPG, PNG, GIF ou WebP, até <?php echo htmlspecialchars(\Src\classes\UploadLimits::formatShort(\Src\classes\UploadLimits::SERVER_MAX_BYTES), ENT_QUOTES, 'UTF-8'); ?>.</small>
                             </div>
                         </fieldset>
                         <fieldset class="profile-form-section">
@@ -417,7 +417,7 @@
                         <div class="form-group">
                             <label for="profile_photo">Foto de perfil (opcional)</label>
                             <input type="file" id="profile_photo" name="profile_photo" accept="image/jpeg,image/png,image/gif,image/webp">
-                            <small class="dashboard-inline-note">JPG, PNG, GIF ou WebP. Máximo 2 MB.</small>
+                            <small class="dashboard-inline-note">JPG, PNG, GIF ou WebP, até <?php echo htmlspecialchars(\Src\classes\UploadLimits::formatShort(\Src\classes\UploadLimits::SERVER_MAX_BYTES), ENT_QUOTES, 'UTF-8'); ?>.</small>
                         </div>
                     </fieldset>
 

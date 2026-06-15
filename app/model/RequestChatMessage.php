@@ -15,6 +15,22 @@ class RequestChatMessage extends ManipularBanco
 
     public const CLOSING_WON_PLATFORM_VISIT_MARKER = '[[policy:closing_won_platform_visit]]';
 
+    private static function unreadMessageConditionSql(string $messageAlias, string $readsAlias): string
+    {
+        RequestChatRead::ensureSchema();
+        if (RequestChatRead::hasMessageCursorColumn()) {
+            return "(
+                (COALESCE({$readsAlias}.last_read_message_id, 0) > 0 AND {$messageAlias}.id > {$readsAlias}.last_read_message_id)
+                OR (
+                    COALESCE({$readsAlias}.last_read_message_id, 0) = 0
+                    AND {$messageAlias}.created_at > COALESCE({$readsAlias}.last_read_at, '1970-01-01 00:00:00')
+                )
+            )";
+        }
+
+        return "{$messageAlias}.created_at > COALESCE({$readsAlias}.last_read_at, '1970-01-01 00:00:00')";
+    }
+
     public static function closingWonPlatformVisitChatText(): string
     {
         return 'O negócio foi marcado como fecho ganho. A plataforma entrará em contacto com ambas as partes '
@@ -150,19 +166,14 @@ class RequestChatMessage extends ManipularBanco
         $params = $requestIds;
         $unreadSql = '0 AS unread_count';
         if ($userId > 0) {
+            $unreadCondition = self::unreadMessageConditionSql('um', 'chat_reads');
             $unreadSql = "COALESCE((
                         SELECT COUNT(*)
                         FROM {$db->table} um
                         WHERE um.thread_id = t.id
                           AND um.sender_user_id <> ?
                           AND um.deleted_at IS NULL
-                          AND (
-                            (COALESCE(chat_reads.last_read_message_id, 0) > 0 AND um.id > chat_reads.last_read_message_id)
-                            OR (
-                                COALESCE(chat_reads.last_read_message_id, 0) = 0
-                                AND um.created_at > COALESCE(chat_reads.last_read_at, '1970-01-01 00:00:00')
-                            )
-                          )
+                          AND {$unreadCondition}
                     ), 0) AS unread_count";
             $params = array_merge([$userId], $requestIds);
         }
@@ -267,6 +278,7 @@ class RequestChatMessage extends ManipularBanco
         }
 
         $db = new self();
+        $unreadCondition = self::unreadMessageConditionSql('m', 'cr');
 
         $sql = "SELECT COALESCE(SUM(unread_in_thread), 0) AS total_unread
                 FROM (
@@ -277,13 +289,7 @@ class RequestChatMessage extends ManipularBanco
                      AND cr.user_id = ?
                     WHERE m.sender_user_id <> ?
                       AND m.deleted_at IS NULL
-                      AND (
-                        (COALESCE(cr.last_read_message_id, 0) > 0 AND m.id > cr.last_read_message_id)
-                        OR (
-                            COALESCE(cr.last_read_message_id, 0) = 0
-                            AND m.created_at > COALESCE(cr.last_read_at, '1970-01-01 00:00:00')
-                        )
-                      )
+                      AND {$unreadCondition}
                     GROUP BY m.thread_id
                 ) unread_threads";
 
@@ -301,6 +307,7 @@ class RequestChatMessage extends ManipularBanco
         }
 
         $db = new self();
+        $unreadCondition = self::unreadMessageConditionSql('m', 'cr');
 
         $sql = "SELECT COALESCE(SUM(unread_in_thread), 0) AS total_unread
                 FROM (
@@ -316,13 +323,7 @@ class RequestChatMessage extends ManipularBanco
                       AND (r.user_id = ? OR r.property_id IN (
                             SELECT p.id FROM properties p WHERE p.affiliate_id = ?
                           ))
-                      AND (
-                        (COALESCE(cr.last_read_message_id, 0) > 0 AND m.id > cr.last_read_message_id)
-                        OR (
-                            COALESCE(cr.last_read_message_id, 0) = 0
-                            AND m.created_at > COALESCE(cr.last_read_at, '1970-01-01 00:00:00')
-                        )
-                      )
+                      AND {$unreadCondition}
                     GROUP BY m.thread_id
                 ) unread_threads";
 

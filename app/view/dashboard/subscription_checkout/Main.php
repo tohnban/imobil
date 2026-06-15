@@ -241,7 +241,7 @@ $defaultDue = $dueDateByDuration[$defaultDuration];
                                            accept="image/jpeg,image/png,image/gif,image/webp"
                                            required>
                                     <small class="dashboard-inline-note">
-                                        Obrigatório para validação. Formatos: JPG, PNG, GIF, WebP. Máximo: 1MB.
+                                        Obrigatório. JPG, PNG, GIF ou WebP, até <?php echo htmlspecialchars(\Src\classes\UploadLimits::formatShort(\Src\classes\UploadLimits::SERVER_MAX_BYTES), ENT_QUOTES, 'UTF-8'); ?>.
                                     </small>
                                 </div>
                             </div>
