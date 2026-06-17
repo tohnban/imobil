@@ -47,6 +47,10 @@ class ControllerPropertyEngagement
             exit;
         }
 
+        if (!ClassCsrf::validate($_POST['csrf_token'] ?? '')) {
+            ClassCsrf::rejectPost('properties');
+        }
+
         Favorite::add(ClassAuth::user()['id'], (int) $id);
         if (ClassCookieConsent::hasBehavioralConsent()) {
             PropertyBehaviorEvent::track(
@@ -69,6 +73,10 @@ class ControllerPropertyEngagement
             exit;
         }
 
+        if (!ClassCsrf::validate($_POST['csrf_token'] ?? '')) {
+            ClassCsrf::rejectPost('properties');
+        }
+
         Favorite::remove(ClassAuth::user()['id'], (int) $id);
         $this->respondFavoriteToggle((int) $id, false);
     }
@@ -80,6 +88,10 @@ class ControllerPropertyEngagement
 
         if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
             ClassCsrf::failRedirect('property/' . (int) $id, 'Token inválido');
+        }
+
+        if (!ClassCsrf::validate($_POST['csrf_token'] ?? '')) {
+            ClassCsrf::rejectPost('property/' . (int) $id);
         }
 
         $user = ClassAuth::user();
