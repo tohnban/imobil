@@ -9,7 +9,7 @@ $legalFrameworkItems = isset($legalFrameworkItems) && is_array($legalFrameworkIt
     <?php if (!empty($legalFrameworkItems)): ?>
     <ul>
         <?php foreach ($legalFrameworkItems as $item): ?>
-        <li><?php echo $item; ?></li>
+        <li><?php echo htmlspecialchars((string) $item, ENT_QUOTES, 'UTF-8'); ?></li>
         <?php endforeach; ?>
     </ul>
     <?php endif; ?>

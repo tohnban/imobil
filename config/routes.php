@@ -407,14 +407,14 @@ return [
         'controller' => 'ControllerDashboardRequests',
         'action' => 'requestChatMarkRead',
         'methods' => ['POST'],
-        'middleware' => ['auth'],
+        'middleware' => ['auth', 'csrf'],
     ],
     [
         'path' => 'dashboard/requestChatMarkUnread/{id}',
         'controller' => 'ControllerDashboardRequests',
         'action' => 'requestChatMarkUnread',
         'methods' => ['POST'],
-        'middleware' => ['auth'],
+        'middleware' => ['auth', 'csrf'],
     ],
     [
         'path' => 'dashboard/dispute/{id}',
