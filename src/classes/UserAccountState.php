@@ -19,6 +19,7 @@ class UserAccountState
     public const ACCESS_FULL = 'full';
     public const ACCESS_ONBOARDING = 'onboarding';
     public const ACCESS_CORRECTION = 'correction';
+    public const ACCESS_PENDING_DELETION = 'pending_deletion';
     public const ACCESS_UNKNOWN = 'unknown';
 
     private const STATUS_LABELS = [
@@ -38,6 +39,7 @@ class UserAccountState
         self::ACCESS_FULL => 'Tudo disponível',
         self::ACCESS_ONBOARDING => 'Enquanto aguarda aprovação',
         self::ACCESS_CORRECTION => 'Pode corrigir aqui',
+        self::ACCESS_PENDING_DELETION => 'Eliminação agendada',
         self::ACCESS_UNKNOWN => 'Indisponível',
     ];
 
@@ -63,10 +65,19 @@ class UserAccountState
         return !empty($user['suspended_until']) && strtotime((string) $user['suspended_until']) > time();
     }
 
+    public static function isPendingDeletion(?array $user): bool
+    {
+        return \App\model\User::isPendingDeletion($user);
+    }
+
     public static function resolveAccessTier(?array $user): string
     {
         if (!is_array($user)) {
             return self::ACCESS_UNKNOWN;
+        }
+
+        if (self::isPendingDeletion($user)) {
+            return self::ACCESS_PENDING_DELETION;
         }
 
         if (self::isSuspended($user)) {
@@ -90,7 +101,8 @@ class UserAccountState
         $canLogin = $status !== '' && !$suspended;
         $canFullPlatform = $access === self::ACCESS_FULL;
         $canAccountPage = in_array($access, [self::ACCESS_ONBOARDING, self::ACCESS_CORRECTION], true);
-        $showLimitedMenu = $canAccountPage;
+        $canDeletionStatusPage = $access === self::ACCESS_PENDING_DELETION;
+        $showLimitedMenu = $canAccountPage || $canDeletionStatusPage;
 
         return [
             'status' => $status,
@@ -99,10 +111,14 @@ class UserAccountState
             'access' => $access,
             'access_label' => self::ACCESS_LABELS[$access] ?? '—',
             'is_suspended' => $suspended,
+            'is_pending_deletion' => $canDeletionStatusPage,
+            'deletion_requested_at' => $canDeletionStatusPage ? (string) ($user['deletion_requested_at'] ?? '') : null,
+            'deletion_scheduled_at' => $canDeletionStatusPage ? (string) ($user['deletion_scheduled_at'] ?? '') : null,
             'suspended_until' => $suspended ? (string) ($user['suspended_until'] ?? '') : null,
             'can_login' => $canLogin,
             'can_full_platform' => $canFullPlatform,
             'can_account_status_page' => $canAccountPage,
+            'can_deletion_status_page' => $canDeletionStatusPage,
             'can_edit_contact_on_account_page' => false,
             'can_edit_identification_on_account_page' => false,
             'can_submit_documents_on_account_page' => false,
@@ -179,6 +195,15 @@ class UserAccountState
             ];
         }
 
+        if ($state['is_pending_deletion']) {
+            $until = (string) ($state['deletion_scheduled_at'] ?? '');
+            $badges[] = [
+                'label' => 'A eliminar' . ($until !== '' ? ' até ' . date('d/m/Y H:i', strtotime($until)) : ''),
+                'tone' => 'danger',
+                'title' => 'Pedido de eliminação de conta',
+            ];
+        }
+
         return $badges;
     }
 
@@ -229,6 +254,14 @@ class UserAccountState
             ];
         }
 
+        if ($access === self::ACCESS_PENDING_DELETION) {
+            return [
+                'kicker' => 'Eliminação de conta',
+                'title' => 'Conta marcada para eliminação',
+                'text' => 'O seu pedido está em análise de conformidade. Durante este período, o acesso à plataforma fica limitado e os seus conteúdos ficam indisponíveis para outros utilizadores.',
+            ];
+        }
+
         return [
             'kicker' => 'A sua conta',
             'title' => 'Como está o seu registo',
@@ -238,6 +271,15 @@ class UserAccountState
 
     private static function capabilitiesCopy(string $access, bool $canEditIdentification, bool $canSubmitDocuments): array
     {
+        if ($access === self::ACCESS_PENDING_DELETION) {
+            return [
+                ['allowed' => true, 'text' => 'Consultar o estado do pedido de eliminação'],
+                ['allowed' => true, 'text' => 'Cancelar o pedido antes do prazo (com palavra-passe)'],
+                ['allowed' => false, 'text' => 'Ver ou gerir imóveis, solicitações e perfil'],
+                ['allowed' => false, 'text' => 'Marcar visitas ou avançar com negócios'],
+            ];
+        }
+
         $identificationCapability = ['allowed' => false, 'text' => 'Corrigir dados de identificação (só se pedirmos)'];
         if ($canEditIdentification) {
             $identificationCapability = [

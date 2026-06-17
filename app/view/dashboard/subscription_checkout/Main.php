@@ -50,19 +50,17 @@ $defaultTotal = $totalByDuration[$defaultDuration];
 $defaultDue = $dueDateByDuration[$defaultDuration];
 ?>
 
-<div class="container dashboard-view subscription-checkout-view">
+<?php
+$dashboardPageClass = 'subscription-checkout-view';
+include DIRREQ . 'app/view/partials/dashboard_page_start.php';
+?>
     <div class="sub-shell sub-checkout-shell">
-        <section class="dashboard-view-hero compact">
-            <div>
-                <span class="dashboard-hero-kicker">Subscrição</span>
-                <h1>Finalizar Plano</h1>
-                <p>Revise o plano, escolha a duração e envie os dados de pagamento para validação financeira.</p>
-            </div>
-        </section>
-
-        <?php if (!empty($_GET['error'])): ?>
-            <div class="sub-feedback error"><?php echo htmlspecialchars((string) $_GET['error']); ?></div>
-        <?php endif; ?>
+        <?php
+        $heroKicker = 'Subscrição';
+        $heroTitle = 'Finalizar Plano';
+        $heroLead = 'Revise o plano, escolha a duração e envie os dados de pagamento para validação financeira.';
+        include DIRREQ . 'app/view/partials/dashboard_view_hero.php';
+        ?>
 
         <div class="sub-checkout-layout">
             <aside class="sub-checkout-aside" aria-label="Resumo do plano">
@@ -259,4 +257,4 @@ $defaultDue = $dueDateByDuration[$defaultDuration];
             </div>
         </div>
     </div>
-</div>
+<?php include DIRREQ . 'app/view/partials/dashboard_page_end.php'; ?>

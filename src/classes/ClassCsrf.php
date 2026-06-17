@@ -66,7 +66,28 @@ class ClassCsrf
 
     public static function isAjaxRequest(): bool
     {
-        return strtolower((string) ($_SERVER['HTTP_X_REQUESTED_WITH'] ?? '')) === 'xmlhttprequest';
+        if (strtolower((string) ($_SERVER['HTTP_X_REQUESTED_WITH'] ?? '')) === 'xmlhttprequest') {
+            return true;
+        }
+
+        if (strtolower((string) ($_SERVER['HTTP_X_IMOBIL_AJAX'] ?? '')) === '1') {
+            return true;
+        }
+
+        $accept = (string) ($_SERVER['HTTP_ACCEPT'] ?? '');
+        if ($accept !== '' && stripos($accept, 'application/json') !== false) {
+            return true;
+        }
+
+        if (isset($_POST['_ajax']) && (string) $_POST['_ajax'] === '1') {
+            return true;
+        }
+
+        if (isset($_GET['_ajax']) && (string) $_GET['_ajax'] === '1') {
+            return true;
+        }
+
+        return false;
     }
 
     /**

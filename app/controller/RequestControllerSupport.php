@@ -2,13 +2,11 @@
 
 namespace App\controller;
 
-use App\model\Commission;
 use App\model\Log;
-use App\model\Notification;
 use App\model\Property;
-use App\model\PropertyAffiliate;
 use App\model\Request;
 use App\model\RequestChatMessage;
+use App\services\CommissionClosingService;
 use Src\classes\ClassAccess;
 use Src\classes\ClassAuth;
 use Src\classes\ClassCsrf;
@@ -19,21 +17,13 @@ trait RequestControllerSupport
 
     private function resolvePropertyFinalStatus(array $property): ?string
     {
-        $purpose = (string) ($property['purpose'] ?? '');
-        if ($purpose === 'venda') {
-            return 'vendido';
-        }
-        if (strpos($purpose, 'aluguer') === 0) {
-            return 'alugado';
-        }
-
-        return null;
+        return Property::resolveCommercialClosureStatus($property);
     }
 
 
     private function isPropertyCommerciallyClosed(array $property): bool
     {
-        return in_array((string) ($property['status'] ?? ''), ['vendido', 'alugado'], true);
+        return CommissionClosingService::isPropertyCommerciallyClosed($property);
     }
 
 
@@ -219,75 +209,10 @@ trait RequestControllerSupport
     }
 
 
-    private function createCommissionFromRequest(int $requestId, array $request, array $property, int $actorId): void
+    private function redirectBackOr(string $fallbackPath, string $param, string $message, array $extra = []): void
     {
-        if ($requestId <= 0 || empty($property) || Commission::existsByRequest($requestId)) {
-            return;
-        }
-
-        $commissionBase = (float) ($request['modality_total_amount'] ?? 0);
-        if ($commissionBase <= 0) {
-            $commissionBase = (float) ($property['price'] ?? 0);
-        }
-
-        $requestAffiliateId = (int) ($request['affiliate_id'] ?? 0);
-        $ownerId = (int) ($property['affiliate_id'] ?? 0);
-        $propertyId = (int) ($request['property_id'] ?? 0);
-        $hasValidAffiliate = $requestAffiliateId > 0
-            && $requestAffiliateId !== $ownerId
-            && PropertyAffiliate::isActiveAffiliate($requestAffiliateId, $propertyId);
-
-        if ($hasValidAffiliate && Commission::hasActiveAffiliateCommissionForProperty($propertyId, $requestAffiliateId)) {
-            $hasValidAffiliate = false;
-        }
-
-        $commissionId = Commission::createFromRequest(
-            $requestId,
-            $hasValidAffiliate ? $requestAffiliateId : 0,
-            (int) ($request['property_id'] ?? 0),
-            $commissionBase,
-            $ownerId
-        );
-
-        $commissionRecordId = is_numeric($commissionId) ? (int) $commissionId : 0;
-        if ($ownerId > 0 && $commissionRecordId > 0) {
-            $commissionRecord = Commission::findById($commissionRecordId);
-            $dueAt = (string) ($commissionRecord['due_at'] ?? '');
-            $dueLabel = $dueAt !== '' ? date('d/m/Y', strtotime($dueAt)) : date('d/m/Y', strtotime('+' . max(1, (int) \Src\classes\ClassSettings::int('commission_due_days', 7)) . ' days'));
-            $amountFormatted = number_format(max(0, (float) ($commissionRecord['amount'] ?? 0)), 0, ',', '.');
-            Notification::notifyUser(
-                $ownerId,
-                'commission_payment_due',
-                'Comissão a pagar',
-                'Foi registada uma comissão de ' . $amountFormatted . ' Kz pelo fecho do imóvel "' . ((string) ($property['title'] ?? '')) . '". Pague até ' . $dueLabel . '.',
-                [
-                    'request_id' => $requestId,
-                    'property_id' => (int) ($request['property_id'] ?? 0),
-                    'commission_id' => $commissionRecordId,
-                ],
-                $actorId
-            );
-        }
-
-        if ($hasValidAffiliate) {
-            Notification::notifyUser(
-                $requestAffiliateId,
-                'commission_created',
-                'Nova comissão registada',
-                'Uma comissão foi registada para o imóvel "' . ((string) ($property['title'] ?? '')) . '". Verifique os detalhes na área de Afiliados.',
-                ['request_id' => $requestId, 'property_id' => (int) ($request['property_id'] ?? 0)],
-                $actorId
-            );
-        }
-    }
-
-
-    private function redirectBackOr(string $fallbackPath, string $param, string $message): void
-    {
-        $url = ClassCsrf::resolveReturnUrl($fallbackPath);
-        $separator = strpos($url, '?') === false ? '?' : '&';
-        header('Location: ' . $url . $separator . $param . '=' . urlencode($message));
-        exit;
+        $success = ($param === 'success');
+        \Src\classes\ClassAjaxResponse::redirectOrJson($success, $message, $fallbackPath, $extra);
     }
 
 }

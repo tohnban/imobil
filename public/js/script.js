@@ -21,6 +21,125 @@
         return formatUploadBytes(UPLOAD_TARGET[key] || UPLOAD_SERVER_MAX);
     };
 
+    function getPageCsrfToken() {
+        var meta = document.querySelector('meta[name="csrf-token"]');
+        if (meta && meta.content) {
+            return meta.content;
+        }
+        var input = document.querySelector('input[name="csrf_token"]');
+        return input ? input.value : '';
+    }
+
+    function setPageCsrfToken(token) {
+        if (!token) {
+            return;
+        }
+        var meta = document.querySelector('meta[name="csrf-token"]');
+        if (meta) {
+            meta.content = token;
+        }
+        document.querySelectorAll('input[name="csrf_token"]').forEach(function (input) {
+            input.value = token;
+        });
+    }
+
+    function serializeUrlEncoded(data) {
+        var params = [];
+        Object.keys(data).forEach(function (key) {
+            if (Object.prototype.hasOwnProperty.call(data, key) && data[key] !== undefined && data[key] !== null) {
+                params.push(encodeURIComponent(key) + '=' + encodeURIComponent(data[key]));
+            }
+        });
+        return params.join('&');
+    }
+
+    function showAjaxFormFeedback(message, tone) {
+        if (!message) {
+            return;
+        }
+        var existing = document.querySelector('.ajax-form-feedback');
+        if (existing) {
+            existing.remove();
+        }
+        var el = document.createElement('div');
+        el.className = 'sub-feedback ajax-form-feedback ' + (tone === 'error' ? 'error' : 'success');
+        el.textContent = message;
+        el.setAttribute('role', tone === 'error' ? 'alert' : 'status');
+        var anchor = document.querySelector('.my-properties-dashboard-view, .afiliados-dashboard-view, .property-page-shell, .dashboard-view');
+        if (anchor) {
+            var insertAfter = anchor.querySelector('.notification-inbox-hero, .sales-page-head, .property-detail, .dashboard-module-card');
+            if (insertAfter && insertAfter.parentNode) {
+                insertAfter.parentNode.insertBefore(el, insertAfter.nextSibling);
+            } else {
+                anchor.insertBefore(el, anchor.firstChild);
+            }
+        } else {
+            document.body.insertBefore(el, document.body.firstChild);
+        }
+        window.setTimeout(function () {
+            if (el.parentNode) {
+                el.remove();
+            }
+        }, 6000);
+    }
+
+    function getAjaxFetchHeaders() {
+        return {
+            'Content-Type': 'application/x-www-form-urlencoded',
+            'X-Requested-With': 'XMLHttpRequest',
+            'X-Imobil-Ajax': '1',
+            'Accept': 'application/json'
+        };
+    }
+
+    async function parseAjaxJsonResponse(response) {
+        var contentType = (response.headers.get('content-type') || '').toLowerCase();
+        if (response.status >= 300 && response.status < 400) {
+            throw new Error('O servidor redireccionou em vez de responder em JSON. Confirme que fez deploy dos ficheiros PHP e JS mais recentes.');
+        }
+        if (contentType.indexOf('application/json') === -1) {
+            throw new Error('Resposta inválida do servidor. Actualize a página (Ctrl+Shift+R) e confirme o deploy de script.js e ClassAjaxResponse.php.');
+        }
+        var payload = await response.json();
+        if (!response.ok || !payload || payload.success !== true) {
+            var errMsg = (payload && (payload.error || payload.message))
+                ? (payload.error || payload.message)
+                : 'Não foi possível concluir a acção.';
+            throw new Error(errMsg);
+        }
+        return payload;
+    }
+
+    async function postFormAjax(form) {
+        var action = form.getAttribute('action') || '';
+        if (!action) {
+            throw new Error('Ação inválida.');
+        }
+
+        var bodyData = { csrf_token: getPageCsrfToken(), _ajax: '1' };
+        var formData = new FormData(form);
+        formData.forEach(function (value, key) {
+            if (key !== 'csrf_token') {
+                bodyData[key] = value;
+            }
+        });
+
+        var response = await fetch(action, {
+            method: 'POST',
+            headers: getAjaxFetchHeaders(),
+            credentials: 'same-origin',
+            body: serializeUrlEncoded(bodyData)
+        });
+
+        var payload = await parseAjaxJsonResponse(response);
+
+        if (payload.csrf_token) {
+            setPageCsrfToken(payload.csrf_token);
+        }
+
+        return payload;
+    }
+
     function setCookie(name, value, days) {
         var maxAge = Math.max(1, (days || 180) * 24 * 60 * 60);
         var cookie = name + '=' + encodeURIComponent(value) + '; path=/; max-age=' + maxAge + '; samesite=lax';
@@ -51,12 +170,21 @@
 
         function showBanner() {
             banner.classList.remove('is-hidden');
+            if (acceptBtn) {
+                window.setTimeout(function () {
+                    acceptBtn.focus();
+                }, 0);
+            }
         }
 
         var currentConsent = getCookie('imobil_behavioral_consent');
         if (currentConsent === 'accepted' || currentConsent === 'rejected') {
             document.body.setAttribute('data-cookie-behavioral', currentConsent);
             hideBanner();
+        } else if (acceptBtn) {
+            window.setTimeout(function () {
+                acceptBtn.focus();
+            }, 300);
         }
 
         if (acceptBtn) {
@@ -489,7 +617,10 @@
             if (container) return container;
             // lazy-load CSS for notification toasts
             try {
-                var cssHref = '/css/notification-toasts.css';
+                var cssBase = (typeof window.IMOBIL_DIRCSS === 'string' && window.IMOBIL_DIRCSS !== '')
+                    ? window.IMOBIL_DIRCSS
+                    : '/public/css/';
+                var cssHref = cssBase.replace(/\/?$/, '/') + 'notification-toasts.css';
                 if (!document.querySelector('link[href="' + cssHref + '"]')) {
                     var link = document.createElement('link');
                     link.rel = 'stylesheet';
@@ -2100,26 +2231,49 @@
         var filterBar = root ? root.querySelector('.my-properties-filter-bar') : null;
         var grid = document.getElementById('my-properties-grid');
         var emptyNote = document.getElementById('my-properties-empty-filter');
+        var searchInput = document.getElementById('my-properties-search');
+        var resultsCount = document.getElementById('my-properties-results-count');
         if (!filterBar || !grid) {
             return;
         }
 
         var cards = grid.querySelectorAll('.my-properties-card[data-status]');
+        var activeFilter = 'all';
+        var totalCount = cards.length;
+
+        function updateResultsCount(visible) {
+            if (!resultsCount) {
+                return;
+            }
+            resultsCount.textContent = 'A mostrar ' + visible + ' de ' + totalCount + ' imóve' + (totalCount === 1 ? 'l' : 'is');
+        }
 
         function applyFilter(filter) {
+            activeFilter = filter || 'all';
+            var query = searchInput ? searchInput.value.trim().toLowerCase() : '';
             var visible = 0;
+
             cards.forEach(function (card) {
                 var status = card.getAttribute('data-status') || '';
-                var show = filter === 'all' || status === filter;
-                card.toggleAttribute('data-hidden', !show);
+                var searchBlob = (card.getAttribute('data-search') || '').toLowerCase();
+                var matchesFilter = activeFilter === 'all'
+                    || status === activeFilter
+                    || (activeFilter === 'pendente' && (status === 'pendente' || status === 'em_analise'));
+                var matchesSearch = query === '' || searchBlob.indexOf(query) !== -1;
+                var show = matchesFilter && matchesSearch;
+
                 if (show) {
+                    card.removeAttribute('data-hidden');
                     visible++;
+                } else {
+                    card.setAttribute('data-hidden', 'true');
                 }
             });
 
             if (emptyNote) {
                 emptyNote.hidden = visible > 0;
             }
+            updateResultsCount(visible);
         }
 
         filterBar.addEventListener('click', function (event) {
@@ -2130,10 +2284,507 @@
 
             var filter = chip.getAttribute('data-filter') || 'all';
             filterBar.querySelectorAll('.my-properties-filter-chip').forEach(function (btn) {
-                btn.classList.toggle('is-active', btn === chip);
+                var isActive = btn === chip;
+                btn.classList.toggle('is-active', isActive);
+                btn.setAttribute('aria-pressed', isActive ? 'true' : 'false');
             });
             applyFilter(filter);
         });
+
+        if (searchInput) {
+            searchInput.addEventListener('input', function () {
+                applyFilter(activeFilter);
+            });
+        }
+
+        applyFilter('all');
+        filterBar.querySelectorAll('.my-properties-filter-chip').forEach(function (btn) {
+            btn.setAttribute('aria-pressed', btn.classList.contains('is-active') ? 'true' : 'false');
+        });
+    })();
+
+    (function initMyPropertiesBoostAnchor() {
+        var boostSection = document.getElementById('boost-section');
+        if (!boostSection) {
+            return;
+        }
+
+        document.addEventListener('click', function (event) {
+            var link = event.target.closest('a[href="#boost-section"]');
+            if (!link) {
+                return;
+            }
+            event.preventDefault();
+            boostSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            var propertySelect = document.getElementById('boost_property_id');
+            var row = link.closest('.my-properties-row');
+            if (propertySelect && row) {
+                var propertyId = row.getAttribute('data-property-id') || '';
+                if (propertyId && propertySelect.querySelector('option[value="' + propertyId + '"]')) {
+                    propertySelect.value = propertyId;
+                }
+            }
+            window.setTimeout(function () {
+                if (propertySelect) {
+                    propertySelect.focus({ preventScroll: true });
+                }
+            }, 400);
+        });
+    })();
+
+    (function initMyPropertiesDeleteDrawers() {
+        function closeFeedMenus() {
+            document.querySelectorAll('.notification-feed-menu').forEach(function (menu) {
+                menu.hidden = true;
+                menu.classList.remove('is-open');
+            });
+            document.querySelectorAll('.notification-feed-menu-btn').forEach(function (btn) {
+                btn.setAttribute('aria-expanded', 'false');
+            });
+            document.querySelectorAll('.notification-feed-item.is-menu-open').forEach(function (item) {
+                item.classList.remove('is-menu-open');
+            });
+        }
+
+        function closeDrawer(drawer) {
+            if (!drawer) {
+                return;
+            }
+            drawer.hidden = true;
+        }
+
+        function openDrawer(drawerId) {
+            if (!drawerId) {
+                return;
+            }
+            var drawer = document.getElementById(drawerId);
+            if (!drawer) {
+                return;
+            }
+            document.querySelectorAll('.my-properties-row-drawer:not(.is-visible)').forEach(function (panel) {
+                if (panel !== drawer) {
+                    closeDrawer(panel);
+                }
+            });
+            closeFeedMenus();
+            drawer.hidden = false;
+            drawer.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+        }
+
+        document.addEventListener('click', function (event) {
+            var openBtn = event.target.closest('.my-properties-open-delete-drawer');
+            if (openBtn) {
+                event.preventDefault();
+                openDrawer(openBtn.getAttribute('data-drawer-target'));
+                return;
+            }
+
+            var closeBtn = event.target.closest('.my-properties-close-delete-drawer');
+            if (closeBtn) {
+                event.preventDefault();
+                closeDrawer(document.getElementById(closeBtn.getAttribute('data-drawer-target') || ''));
+            }
+        });
+    })();
+
+    (function initPropertyFavoriteForms() {
+        function swapFavoriteAction(action, favorited) {
+            return action.replace(/\/(favorite|unfavorite)\//i, favorited ? '/unfavorite/' : '/favorite/');
+        }
+
+        function setFavoriteFormUi(form, favorited) {
+            var btn = form.querySelector('.btn-favorite');
+            if (btn) {
+                btn.classList.toggle('is-active', favorited);
+                var icon = btn.querySelector('i.fa');
+                if (icon) {
+                    icon.className = 'fa ' + (favorited ? 'fa-heart' : 'fa-heart-o');
+                }
+                var label = favorited ? 'Remover dos favoritos' : 'Guardar nos favoritos';
+                btn.title = label;
+                btn.setAttribute('aria-label', label);
+            }
+            var action = form.getAttribute('action') || '';
+            if (action !== '') {
+                form.setAttribute('action', swapFavoriteAction(action, favorited));
+            }
+        }
+
+        function updateHeaderFavoriteCount(count) {
+            var link = document.querySelector('.header-icon-link--favorites');
+            if (!link) {
+                return;
+            }
+
+            var label = count > 0
+                ? ('Favoritos, ' + count + ' imóveis guardados')
+                : 'Favoritos';
+            link.title = count > 0 ? ('Favoritos (' + count + ')') : 'Favoritos';
+            link.setAttribute('aria-label', label);
+
+            var badge = link.querySelector('.header-favorites-badge');
+            if (count > 0) {
+                if (!badge) {
+                    badge = document.createElement('span');
+                    badge.className = 'notification-badge header-favorites-badge';
+                    link.appendChild(badge);
+                }
+                badge.textContent = count > 99 ? '99+' : String(count);
+            } else if (badge) {
+                badge.remove();
+            }
+        }
+
+        function updateFavoritesPageAfterRemove(form) {
+            var item = form.closest('.favorite-property-feed-item');
+            if (!item) {
+                return;
+            }
+
+            var list = item.parentElement;
+            item.remove();
+
+            var remaining = list ? list.querySelectorAll('.favorite-property-feed-item').length : 0;
+            var heroMeta = document.querySelector('.favorites-inbox-view .notification-inbox-hero-meta span');
+            if (heroMeta) {
+                heroMeta.textContent = remaining + ' guardado' + (remaining === 1 ? '' : 's');
+            }
+
+            if (remaining > 0 || !list) {
+                return;
+            }
+
+            var feed = list.closest('.notification-feed');
+            if (feed) {
+                feed.remove();
+            }
+
+            var panel = document.querySelector('.favorites-inbox-panel');
+            if (!panel || panel.querySelector('.notification-inbox-empty')) {
+                return;
+            }
+
+            var empty = document.createElement('div');
+            empty.className = 'notification-inbox-empty';
+            empty.innerHTML = '<span class="notification-inbox-empty-icon" aria-hidden="true"><i class="fa fa-heart-o"></i></span>'
+                + '<strong>Nenhum imóvel favorito ainda</strong>'
+                + '<p>Navegue pelos imóveis disponíveis e toque no coração para guardar os que lhe interessam.</p>';
+            panel.insertBefore(empty, panel.firstChild);
+        }
+
+        document.addEventListener('submit', async function (event) {
+            var form = event.target;
+            if (!form || form.tagName !== 'FORM') {
+                return;
+            }
+            if (!form.matches('.favorite-form-inline, .favorite-property-feed-remove-form')) {
+                return;
+            }
+
+            event.preventDefault();
+
+            var submitBtn = event.submitter || form.querySelector('button[type="submit"], input[type="submit"]');
+            if (submitBtn) {
+                var confirmMsg = submitBtn.getAttribute('data-confirm');
+                if (confirmMsg && !window.confirm(confirmMsg)) {
+                    return;
+                }
+            }
+
+            if (submitBtn) {
+                submitBtn.disabled = true;
+            }
+
+            try {
+                var payload = await postFormAjax(form);
+
+                if (typeof payload.favorite_count === 'number') {
+                    updateHeaderFavoriteCount(payload.favorite_count);
+                }
+
+                if (form.classList.contains('favorite-property-feed-remove-form')) {
+                    updateFavoritesPageAfterRemove(form);
+                } else {
+                    setFavoriteFormUi(form, !!payload.favorited);
+                }
+            } catch (error) {
+                if (submitBtn) {
+                    submitBtn.disabled = false;
+                }
+                showAjaxFormFeedback(error.message || 'Não foi possível actualizar os favoritos.', 'error');
+                return;
+            }
+
+            if (submitBtn) {
+                submitBtn.disabled = false;
+            }
+        });
+    })();
+
+    (function initAffiliationRequestForm() {
+        document.addEventListener('submit', async function (event) {
+            var form = event.target;
+            if (!form || form.tagName !== 'FORM' || !form.classList.contains('affiliation-request-form')) {
+                return;
+            }
+
+            event.preventDefault();
+
+            var submitBtn = event.submitter || form.querySelector('button[type="submit"]');
+            var modal = document.getElementById('affiliation-terms-modal');
+            var originalLabel = submitBtn ? submitBtn.textContent : '';
+
+            if (submitBtn) {
+                submitBtn.disabled = true;
+                submitBtn.textContent = 'A enviar...';
+            }
+
+            try {
+                var payload = await postFormAjax(form);
+                if (modal) {
+                    modal.hidden = true;
+                }
+                if (typeof window.updateAffiliateCardAfterRequest === 'function') {
+                    window.updateAffiliateCardAfterRequest(payload);
+                }
+                showAjaxFormFeedback(payload.message || 'Solicitação enviada.', 'success');
+            } catch (error) {
+                showAjaxFormFeedback(error.message || 'Não foi possível enviar a solicitação.', 'error');
+            } finally {
+                if (submitBtn) {
+                    submitBtn.disabled = false;
+                    submitBtn.textContent = originalLabel || 'Aceito os termos e solicito afiliação';
+                }
+            }
+        });
+    })();
+
+    (function initAjaxInlineForms() {
+        var propertyStatusLabels = {
+            disponivel: 'Disponível',
+            vendido: 'Vendido',
+            alugado: 'Alugado',
+            pendente: 'Pendente',
+            em_analise: 'Em análise',
+            rejeitado: 'Rejeitado',
+            suspenso: 'Suspenso'
+        };
+
+        var propertyStatusClasses = {
+            disponivel: 'dashboard-chip-success',
+            vendido: 'dashboard-chip',
+            alugado: 'dashboard-chip',
+            pendente: 'dashboard-chip-warning',
+            em_analise: 'dashboard-chip-warning',
+            rejeitado: 'dashboard-chip-danger',
+            suspenso: 'dashboard-chip-danger'
+        };
+
+        function updatePropertyCardStatus(propertyId, newStatus) {
+            var card = document.querySelector('.my-properties-card[data-property-id="' + propertyId + '"]');
+            if (!card) {
+                return;
+            }
+
+            card.setAttribute('data-status', newStatus);
+            var chip = card.querySelector('.my-properties-row-status, .my-properties-card-badges .dashboard-chip');
+            if (chip) {
+                chip.textContent = propertyStatusLabels[newStatus] || newStatus;
+                chip.className = 'dashboard-chip my-properties-row-status ' + (propertyStatusClasses[newStatus] || 'dashboard-chip');
+            }
+
+            var secondary = card.querySelector('.my-properties-action-row--secondary, .my-properties-actions-secondary');
+            if (secondary) {
+                secondary.remove();
+            }
+
+            var menuWrap = card.querySelector('.notification-feed-menu-wrap');
+            if (menuWrap && newStatus !== 'disponivel') {
+                var menu = menuWrap.querySelector('.notification-feed-menu');
+                if (menu) {
+                    menu.querySelectorAll('form[data-ajax-action="property-set-status"], a[href="#boost-section"]').forEach(function (node) {
+                        var parent = node.closest('form') || node;
+                        parent.remove();
+                    });
+                }
+            }
+
+            var queueNote = card.querySelector('.dashboard-property-queue-note');
+            if (queueNote && !card.querySelector('.dashboard-affiliate-count')) {
+                queueNote.remove();
+            }
+        }
+
+        function removeAffiliateRequestRow(requestId) {
+            var selector = '[data-affiliate-request-id="' + requestId + '"]';
+            var item = document.querySelector('.dashboard-affiliate-item' + selector);
+            if (item) {
+                var list = item.parentElement;
+                var queueCard = item.closest('.dashboard-affiliate-queue-card');
+                item.remove();
+
+                if (list && list.querySelectorAll('.dashboard-affiliate-item').length === 0 && queueCard) {
+                    queueCard.remove();
+                }
+
+                var queueSection = document.querySelector('.my-properties-affiliate-queue');
+                if (queueSection && !queueSection.querySelector('.dashboard-affiliate-item')) {
+                    queueSection.remove();
+                }
+            }
+
+            var tableRow = document.querySelector('tr.afiliados-row' + selector);
+            if (tableRow) {
+                tableRow.remove();
+            }
+        }
+
+        function updatePropertyAffiliateQueueCount(propertyId) {
+            if (!propertyId) {
+                return;
+            }
+            var card = document.querySelector('.my-properties-card[data-property-id="' + propertyId + '"]');
+            var queueCard = document.querySelector('.dashboard-affiliate-queue-card[data-property-id="' + propertyId + '"]');
+            var remaining = queueCard
+                ? queueCard.querySelectorAll('.dashboard-affiliate-item[data-affiliate-request-id]').length
+                : 0;
+
+            if (card) {
+                var countEl = card.querySelector('.dashboard-affiliate-count');
+                if (countEl) {
+                    countEl.textContent = String(remaining);
+                }
+
+                var queueLink = card.querySelector('a[href="#affiliate-queue"]');
+                if (queueLink) {
+                    if (remaining > 0) {
+                        queueLink.textContent = 'Pedidos de afiliação (' + remaining + ')';
+                    } else {
+                        var linkWrap = queueLink.closest('.dashboard-inline-actions');
+                        if (linkWrap) {
+                            linkWrap.remove();
+                        }
+                    }
+                }
+
+                var queueNote = card.querySelector('.dashboard-property-queue-note');
+                if (queueNote && remaining === 0) {
+                    queueNote.remove();
+                }
+            }
+        }
+
+        function reloadAffiliateTermsDisplay() {
+            var termsDisplay = document.getElementById('affiliate-terms-display');
+            if (!termsDisplay) {
+                return;
+            }
+            var content = termsDisplay.querySelector('.affiliate-terms-content');
+            if (!content) {
+                return;
+            }
+            var baseUrl = window.location.origin + window.location.pathname.split('property')[0];
+            fetch(baseUrl + 'property/getAffiliationTerms', {
+                method: 'GET',
+                headers: { 'X-Requested-With': 'XMLHttpRequest' },
+                credentials: 'same-origin'
+            })
+                .then(function (response) {
+                    if (!response.ok) {
+                        throw new Error('Falha');
+                    }
+                    return response.json();
+                })
+                .then(function (data) {
+                    var html = '';
+                    if (Array.isArray(data.sections)) {
+                        data.sections.forEach(function (section) {
+                            html += '<div class="affiliate-terms-section">'
+                                + '<h3>' + escapeHtml(section.heading || '') + '</h3>'
+                                + '<p>' + escapeHtml(section.content || '') + '</p>'
+                                + '</div>';
+                        });
+                    }
+                    content.innerHTML = html;
+                })
+                .catch(function () {
+                    content.innerHTML = '<p>Não foi possível carregar os termos.</p>';
+                });
+        }
+
+        function updateAffiliateCardAfterRequest(payload) {
+            var card = document.querySelector('.property-affiliate-card');
+            if (!card) {
+                return;
+            }
+
+            var status = String(payload.affiliate_status || '');
+            if (status === 'ativo') {
+                card.innerHTML = '<strong>Programa de afiliação</strong>'
+                    + '<p>Você já está aprovado como afiliado deste imóvel e pode usar o seu link de indicação.</p>'
+                    + '<details class="affiliate-terms-details">'
+                    + '<summary class="affiliate-terms-summary">Ver termos de afiliação</summary>'
+                    + '<div id="affiliate-terms-display" class="affiliate-terms-display"><div class="affiliate-terms-content"></div></div>'
+                    + '</details>';
+                reloadAffiliateTermsDisplay();
+                return;
+            }
+
+            if (status === 'pendente') {
+                card.innerHTML = '<strong>Programa de afiliação</strong>'
+                    + '<p>Sua solicitação de afiliação para este imóvel está pendente de aprovação do proprietário.</p>'
+                    + '<p class="affiliate-pending-note">Será notificado por email quando houver uma decisão.</p>';
+            }
+        }
+
+        document.addEventListener('submit', async function (event) {
+            var form = event.target;
+            if (!form || form.tagName !== 'FORM') {
+                return;
+            }
+            if (!form.classList.contains('ajax-form-inline')) {
+                return;
+            }
+
+            event.preventDefault();
+
+            var submitBtn = event.submitter || form.querySelector('button[type="submit"], input[type="submit"]');
+            if (submitBtn) {
+                var confirmMsg = submitBtn.getAttribute('data-confirm');
+                if (confirmMsg && !window.confirm(confirmMsg)) {
+                    return;
+                }
+            }
+
+            var actionType = form.getAttribute('data-ajax-action') || '';
+            if (submitBtn) {
+                submitBtn.disabled = true;
+            }
+
+            try {
+                var payload = await postFormAjax(form);
+                showAjaxFormFeedback(payload.message || 'Acção concluída.', 'success');
+
+                if (actionType === 'property-set-status' && payload.property_id && payload.new_status) {
+                    updatePropertyCardStatus(String(payload.property_id), String(payload.new_status));
+                } else if (actionType === 'affiliate-decision' && payload.affiliate_request_id) {
+                    removeAffiliateRequestRow(String(payload.affiliate_request_id));
+                    updatePropertyAffiliateQueueCount(payload.property_id ? String(payload.property_id) : '');
+                }
+            } catch (error) {
+                showAjaxFormFeedback(error.message || 'Não foi possível concluir a acção.', 'error');
+                if (submitBtn) {
+                    submitBtn.disabled = false;
+                }
+                return;
+            }
+
+            if (submitBtn) {
+                submitBtn.disabled = false;
+            }
+        });
+
+        window.updateAffiliateCardAfterRequest = updateAffiliateCardAfterRequest;
     })();
 
     // Copy link buttons (referrals, agency page, etc.).
@@ -2861,10 +3512,44 @@
         }
     })();
 
+    function positionNotificationFeedMenu(menu, wrap) {
+        if (!menu || !wrap) {
+            return;
+        }
+
+        menu.style.top = '';
+        menu.style.bottom = '';
+
+        var menuHeight = menu.offsetHeight || 48;
+        var wrapRect = wrap.getBoundingClientRect();
+        var scrollParent = wrap.closest('.request-chats-panel, .notification-inbox-panel, .notification-list');
+        var boundaryTop = 0;
+        var boundaryBottom = window.innerHeight;
+
+        if (scrollParent) {
+            var parentRect = scrollParent.getBoundingClientRect();
+            boundaryTop = parentRect.top;
+            boundaryBottom = parentRect.bottom;
+        }
+
+        var spaceBelow = boundaryBottom - wrapRect.bottom;
+        var spaceAbove = wrapRect.top - boundaryTop;
+
+        if (spaceBelow < menuHeight + 12 && spaceAbove >= menuHeight + 12) {
+            menu.style.top = 'auto';
+            menu.style.bottom = 'calc(100% + 4px)';
+        } else {
+            menu.style.top = 'calc(100% + 4px)';
+            menu.style.bottom = 'auto';
+        }
+    }
+
     function closeNotificationFeedMenus() {
         document.querySelectorAll('.notification-feed-menu').forEach(function (menu) {
             menu.hidden = true;
             menu.classList.remove('is-open');
+            menu.style.top = '';
+            menu.style.bottom = '';
         });
         document.querySelectorAll('.notification-feed-menu-btn').forEach(function (btn) {
             btn.setAttribute('aria-expanded', 'false');
@@ -2882,6 +3567,7 @@
         if (item) {
             item.classList.add('is-menu-open');
         }
+        positionNotificationFeedMenu(menu, btn.closest('.notification-feed-menu-wrap'));
     }
 
     (function initNotificationInboxFeedMenus() {
@@ -4777,8 +5463,17 @@
         var form = document.getElementById('promoter-activate-form');
         var termsUrl = modal.getAttribute('data-terms-url') || '';
 
+        function openModal() {
+            if (checkbox) { checkbox.checked = false; }
+            if (submitBtn) { submitBtn.disabled = true; }
+            loadTerms();
+            modal.hidden = false;
+            document.body.classList.add('dashboard-terms-modal-open');
+        }
+
         function closeModal() {
             modal.hidden = true;
+            document.body.classList.remove('dashboard-terms-modal-open');
         }
 
         function loadTerms() {
@@ -4824,12 +5519,7 @@
                 });
         }
 
-        activateBtn.addEventListener('click', function () {
-            if (checkbox) { checkbox.checked = false; }
-            if (submitBtn) { submitBtn.disabled = true; }
-            loadTerms();
-            modal.hidden = false;
-        });
+        activateBtn.addEventListener('click', openModal);
 
         if (checkbox && submitBtn) {
             checkbox.addEventListener('change', function () {
@@ -4837,10 +5527,12 @@
             });
         }
 
-        if (submitBtn && form) {
-            submitBtn.addEventListener('click', function () {
-                if (!checkbox || !checkbox.checked) { return; }
-                form.submit();
+        // Submit is handled by the real form (button type="submit").
+        if (form && checkbox) {
+            form.addEventListener('submit', function (event) {
+                if (!checkbox.checked) {
+                    event.preventDefault();
+                }
             });
         }
 
@@ -4857,25 +5549,22 @@
         var modal = document.getElementById('affiliation-terms-modal');
         var closeBtn = document.querySelector('.affiliation-modal-close');
         var cancelBtn = document.querySelector('.affiliation-modal-cancel');
-        var submitBtn = document.querySelector('.affiliation-submit-btn');
 
         if (requestBtns.length === 0 || !modal) { return; }
 
-        function getBaseUrl() {
-            return window.location.origin + window.location.pathname.split('property')[0];
+        function getTermsUrl() {
+            var fromModal = modal.getAttribute('data-terms-url') || '';
+            if (fromModal) {
+                return fromModal;
+            }
+            return window.location.origin + window.location.pathname.split('property')[0] + 'property/getAffiliationTerms';
         }
 
         function showTermsModal(button) {
             var termsBody = document.getElementById('affiliation-terms-body');
             if (!termsBody) { return; }
-            if (submitBtn && button) {
-                var propertyId = button.getAttribute('data-affiliate-property-id') || '';
-                if (propertyId) {
-                    submitBtn.setAttribute('data-property-id', propertyId);
-                }
-            }
 
-            fetch(getBaseUrl() + 'property/getAffiliationTerms', {
+            fetch(getTermsUrl(), {
                 method: 'GET',
                 headers: { 'X-Requested-With': 'XMLHttpRequest' },
                 credentials: 'same-origin'
@@ -4903,23 +5592,6 @@
                 });
         }
 
-        function submitRequest() {
-            var propertyId = submitBtn.getAttribute('data-property-id');
-            if (!propertyId) { return; }
-
-            var csrfMeta = document.querySelector('meta[name="csrf-token"]');
-            var csrfToken = (csrfMeta && csrfMeta.content)
-                ? csrfMeta.content
-                : ((document.querySelector('input[name="csrf_token"]') || {}).value || '');
-
-            var form = document.createElement('form');
-            form.method = 'POST';
-            form.action = getBaseUrl() + 'property/affiliateRequest/' + encodeURIComponent(propertyId);
-            form.innerHTML = '<input type="hidden" name="csrf_token" value="' + escapeHtml(csrfToken) + '">';
-            document.body.appendChild(form);
-            form.submit();
-        }
-
         function closeModal() {
             modal.hidden = true;
         }
@@ -4931,7 +5603,6 @@
         });
         if (closeBtn) { closeBtn.addEventListener('click', closeModal); }
         if (cancelBtn) { cancelBtn.addEventListener('click', closeModal); }
-        if (submitBtn) { submitBtn.addEventListener('click', submitRequest); }
 
         modal.addEventListener('click', function (event) {
             if (event.target === modal) { closeModal(); }
@@ -5474,6 +6145,9 @@
     document.addEventListener('click', function (event) {
         var btn = event.target.closest('button[data-confirm], input[data-confirm]');
         if (!btn) { return; }
+        if (btn.closest('.favorite-form-inline, .favorite-property-feed-remove-form, .ajax-form-inline')) {
+            return;
+        }
         var message = btn.getAttribute('data-confirm');
         if (message && !window.confirm(message)) {
             event.preventDefault();

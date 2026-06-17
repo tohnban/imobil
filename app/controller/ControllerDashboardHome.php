@@ -20,6 +20,10 @@ class ControllerDashboardHome
         ClassAuth::requireAuth();
 
         $user = ClassAuth::user();
+        if (ClassAccess::canUseDeletionStatusPage($user)) {
+            header('Location: ' . DIRPAGE . 'dashboard/accountDeletionStatus');
+            exit;
+        }
         if (ClassAccess::canUseAccountStatusPage($user)) {
             header('Location: ' . DIRPAGE . 'dashboard/accountStatus');
             exit;

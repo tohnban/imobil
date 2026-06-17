@@ -12,19 +12,17 @@ $amount = (float) ($commission['amount'] ?? 0);
 $selectedMethodId = !empty($paymentMethods) ? (int) ($paymentMethods[0]['id'] ?? 0) : 0;
 ?>
 
-<div class="container dashboard-view">
+<?php
+$dashboardPageClass = '';
+include DIRREQ . 'app/view/partials/dashboard_page_start.php';
+?>
     <div class="sub-shell sub-checkout-shell">
-        <section class="dashboard-view-hero compact">
-            <div>
-                <span class="dashboard-hero-kicker">Comissão #<?php echo $commissionId; ?></span>
-                <h1>Pagar comissão</h1>
-                <p>Transfira o valor indicado e envie o comprovativo para validação financeira.</p>
-            </div>
-        </section>
-
-        <?php if (!empty($_GET['error'])): ?>
-            <div class="sub-feedback error"><?php echo htmlspecialchars((string) $_GET['error']); ?></div>
-        <?php endif; ?>
+        <?php
+        $heroKicker = 'Comissão #' . $commissionId;
+        $heroTitle = 'Pagar comissão';
+        $heroLead = 'Transfira o valor indicado e envie o comprovativo para validação financeira.';
+        include DIRREQ . 'app/view/partials/dashboard_view_hero.php';
+        ?>
 
         <section class="sub-section">
             <div class="sub-section-header">
@@ -109,4 +107,4 @@ $selectedMethodId = !empty($paymentMethods) ? (int) ($paymentMethods[0]['id'] ??
             </form>
         </section>
     </div>
-</div>
+<?php include DIRREQ . 'app/view/partials/dashboard_page_end.php'; ?>

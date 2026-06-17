@@ -21,19 +21,17 @@ $backUrl = DIRPAGE . 'dashboard/adminSubscriptions';
 $checkoutAction = DIRPAGE . 'dashboard/confirmAdminSubscriptionCheckout';
 ?>
 
-<div class="container dashboard-view">
+<?php
+$dashboardPageClass = '';
+include DIRREQ . 'app/view/partials/dashboard_page_start.php';
+?>
     <div class="sub-shell sub-checkout-shell">
-        <section class="dashboard-view-hero compact">
-            <div>
-                <span class="dashboard-hero-kicker">Administração</span>
-                <h1>Configurar Plano Empresarial</h1>
-                <p>Defina o valor negociado, duração e renovação para o utilizador selecionado.</p>
-            </div>
-        </section>
-
-        <?php if (!empty($_GET['error'])): ?>
-            <div class="sub-feedback error"><?php echo htmlspecialchars((string) $_GET['error']); ?></div>
-        <?php endif; ?>
+        <?php
+        $heroKicker = 'Administração';
+        $heroTitle = 'Configurar Plano Empresarial';
+        $heroLead = 'Defina o valor negociado, duração e renovação para o utilizador selecionado.';
+        include DIRREQ . 'app/view/partials/dashboard_view_hero.php';
+        ?>
 
         <section class="sub-section">
             <div class="sub-section-header">
@@ -150,5 +148,5 @@ $checkoutAction = DIRPAGE . 'dashboard/confirmAdminSubscriptionCheckout';
             </form>
         </section>
     </div>
-</div>
+<?php include DIRREQ . 'app/view/partials/dashboard_page_end.php'; ?>
 <script src="<?php echo DIRJS; ?>admin-subscription-checkout.js?v=20260603"></script>

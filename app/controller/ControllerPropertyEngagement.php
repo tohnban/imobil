@@ -8,6 +8,7 @@ use App\model\Notification;
 use App\model\Property;
 use App\model\PropertyAffiliate;
 use App\model\PropertyBehaviorEvent;
+use Src\classes\ClassAjaxResponse;
 use Src\classes\ClassAuth;
 use Src\classes\ClassCookieConsent;
 use Src\classes\ClassCsrf;
@@ -15,6 +16,27 @@ use Src\classes\ClassSession;
 
 class ControllerPropertyEngagement
 {
+    private function respondFavoriteToggle(int $propertyId, bool $favorited): void
+    {
+        $userId = (int) (ClassAuth::user()['id'] ?? 0);
+        $favoriteCount = Favorite::countByUser($userId);
+
+        if (ClassCsrf::isAjaxRequest()) {
+            header('Content-Type: application/json; charset=utf-8');
+            echo json_encode([
+                'success' => true,
+                'favorited' => $favorited,
+                'property_id' => $propertyId,
+                'favorite_count' => $favoriteCount,
+                'csrf_token' => ClassCsrf::get(),
+            ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+            exit;
+        }
+
+        $redirect = ClassCsrf::resolveReturnUrl('property/' . $propertyId);
+        header('Location: ' . $redirect);
+        exit;
+    }
 
     public function favorite($id)
     {
@@ -34,9 +56,7 @@ class ControllerPropertyEngagement
                 ClassSession::getOrCreateVisitorKey()
             );
         }
-        $redirect = $_SERVER['HTTP_REFERER'] ?? (DIRPAGE . 'property/' . (int) $id);
-        header('Location: ' . $redirect);
-        exit;
+        $this->respondFavoriteToggle((int) $id, true);
     }
 
 
@@ -50,9 +70,7 @@ class ControllerPropertyEngagement
         }
 
         Favorite::remove(ClassAuth::user()['id'], (int) $id);
-        $redirect = $_SERVER['HTTP_REFERER'] ?? (DIRPAGE . 'property/' . (int) $id);
-        header('Location: ' . $redirect);
-        exit;
+        $this->respondFavoriteToggle((int) $id, false);
     }
 
 
@@ -70,26 +88,30 @@ class ControllerPropertyEngagement
         // Check if property exists
         $property = Property::find($propertyId);
         if (!$property) {
+            if (ClassCsrf::isAjaxRequest()) {
+                ClassAjaxResponse::json(false, ['error' => 'Imóvel não encontrado.'], 404);
+            }
             header('Location: ' . DIRPAGE . '404');
             exit;
         }
 
         // Can't request affiliation to own property
         if ($property['affiliate_id'] == $user['id']) {
-            header('Location: ' . DIRPAGE . 'property/' . $propertyId . '?error=Você é o proprietário deste imóvel');
-            exit;
+            ClassAjaxResponse::redirectOrJson(false, 'Você é o proprietário deste imóvel.', 'property/' . $propertyId);
+        }
+
+        if (!Property::isPubliclyListed($property)) {
+            ClassAjaxResponse::redirectOrJson(false, 'Este imóvel não está disponível para afiliação.', 'property/' . $propertyId);
         }
 
         // Must have the affiliate profile enabled first
         if (empty($user['is_affiliate'])) {
-            header('Location: ' . DIRPAGE . 'property/' . $propertyId . '?error=Active o perfil de promotor no seu dashboard antes de solicitar afiliação');
-            exit;
+            ClassAjaxResponse::redirectOrJson(false, 'Active o perfil de promotor no seu dashboard antes de solicitar afiliação.', 'property/' . $propertyId);
         }
 
         // Check if already affiliate (pendente or ativo)
         if (PropertyAffiliate::exists($user['id'], $propertyId)) {
-            header('Location: ' . DIRPAGE . 'property/' . $propertyId . '?error=Você já tem uma solicitação de afiliação para este imóvel');
-            exit;
+            ClassAjaxResponse::redirectOrJson(false, 'Você já tem uma solicitação de afiliação para este imóvel.', 'property/' . $propertyId);
         }
 
         $approvalMode = (string) ($property['affiliate_approval_mode'] ?? Property::AFFILIATE_APPROVAL_AUTO);
@@ -97,8 +119,7 @@ class ControllerPropertyEngagement
             $approvalMode = Property::AFFILIATE_APPROVAL_AUTO;
         }
         if ($approvalMode === Property::AFFILIATE_APPROVAL_DISABLED) {
-            header('Location: ' . DIRPAGE . 'property/' . $propertyId . '?error=Este+imovel+nao+aceita+afiliacoes');
-            exit;
+            ClassAjaxResponse::redirectOrJson(false, 'Este imóvel não aceita afiliações.', 'property/' . $propertyId);
         }
         $initialStatus = $approvalMode === Property::AFFILIATE_APPROVAL_AUTO ? 'ativo' : 'pendente';
 
@@ -128,12 +149,20 @@ class ControllerPropertyEngagement
                 (int) ($property['affiliate_id'] ?? 0)
             );
 
-            header('Location: ' . DIRPAGE . 'property/' . $propertyId . '?success=Afiliacao aprovada automaticamente. Pode começar a indicar este imóvel');
-            exit;
+            ClassAjaxResponse::redirectOrJson(
+                true,
+                'Afiliação aprovada automaticamente. Pode começar a indicar este imóvel.',
+                'property/' . $propertyId,
+                ['property_id' => $propertyId, 'affiliate_status' => 'ativo']
+            );
         }
 
-        header('Location: ' . DIRPAGE . 'property/' . $propertyId . '?success=Solicitação de afiliação enviada com sucesso');
-        exit;
+        ClassAjaxResponse::redirectOrJson(
+            true,
+            'Solicitação de afiliação enviada com sucesso.',
+            'property/' . $propertyId,
+            ['property_id' => $propertyId, 'affiliate_status' => 'pendente']
+        );
     }
 
 

@@ -143,6 +143,26 @@ class PropertyBoostRequest extends ManipularBanco
         return $stmt->fetchAll(\PDO::FETCH_ASSOC);
     }
 
+    public static function clearPaymentProofsForProperty(int $propertyId): int
+    {
+        if ($propertyId <= 0) {
+            return 0;
+        }
+
+        $db = new self();
+        $sql = "UPDATE {$db->table}
+                SET payment_proof = NULL
+                WHERE property_id = ?
+                  AND payment_proof IS NOT NULL
+                  AND payment_proof <> ''";
+        $stmt = $db->prepare($sql);
+        if (!$stmt->execute([$propertyId])) {
+            return 0;
+        }
+
+        return $stmt->rowCount();
+    }
+
     /**
      * Check if there is already an open (pendente) request for a property.
      */

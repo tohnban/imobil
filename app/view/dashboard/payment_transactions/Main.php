@@ -53,21 +53,14 @@ function ptxPaginationUrl(int $targetPage, string $status, string $type): string
 }
 ?>
 
-<div class="container dashboard-view payments-admin-view payment-transactions-admin-view">
-    <section class="dashboard-view-hero compact">
-        <div>
-            <span class="dashboard-hero-kicker">Financeiro</span>
-            <h1>Transações de Pagamento</h1>
-            <p>Confirme, cancele e exporte o livro de transações de comissões, destaques, selos e subscrições.</p>
-        </div>
-    </section>
-
-    <?php if (!empty($_GET['error'])): ?>
-        <div class="sub-feedback error"><?php echo htmlspecialchars((string) $_GET['error']); ?></div>
-    <?php endif; ?>
-    <?php if (!empty($_GET['success'])): ?>
-        <div class="sub-feedback success"><?php echo htmlspecialchars((string) $_GET['success']); ?></div>
-    <?php endif; ?>
+<?php
+$dashboardPageClass = 'payments-admin-view payment-transactions-admin-view';
+include DIRREQ . 'app/view/partials/dashboard_page_start.php';
+$heroKicker = 'Financeiro';
+$heroTitle = 'Transações de Pagamento';
+$heroLead = 'Confirme, cancele e exporte o livro de transações de comissões, destaques, selos e subscrições.';
+include DIRREQ . 'app/view/partials/dashboard_view_hero.php';
+?>
 
     <div class="dashboard-overview-grid dashboard-overview-grid-tight dashboard-kpi-section ptx-kpi-section">
         <div class="kpi-card kpi-yellow">
@@ -347,4 +340,4 @@ function ptxPaginationUrl(int $targetPage, string $status, string $type): string
             </div>
         <?php endif; ?>
     </div>
-</div>
+<?php include DIRREQ . 'app/view/partials/dashboard_page_end.php'; ?>

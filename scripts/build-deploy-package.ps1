@@ -20,6 +20,9 @@ if ($OutputDir -eq '') {
 $runtimeScripts = @(
     'requests_sla_scheduler.php',
     'commission_scheduler.php',
+    'compliance_deletion_scheduler.php',
+    'account_deletion_scheduler.php',
+    'property_deletion_scheduler.php',
     'boost_expiration_scheduler.php',
     'subscription_scheduler.php',
     'mail_queue_worker.php',
@@ -161,13 +164,26 @@ IMOBIL - PACOTE DE PRODUCAO
 1. Envie TODO o conteudo desta pasta para o servidor (public_html ou htdocs).
 2. Copie .env.production.example para .env e preencha DB + SMTP + APP_URL.
 3. No servidor: php scripts/ensure-storage-dirs.php
-4. Registe cron para scripts/*_scheduler.php e mail_queue_worker.php
-5. Permissoes de escrita em storage/ e public/storage/uploads/
-6. Base de dados vazia: no PC de dev execute
+4. Registe cron (exemplo Linux / Hostinger):
+   0 * * * * php /caminho/scripts/requests_sla_scheduler.php
+   0 */6 * * * php /caminho/scripts/commission_scheduler.php
+   0 * * * * php /caminho/scripts/compliance_deletion_scheduler.php
+   0 * * * * php /caminho/scripts/boost_expiration_scheduler.php
+   0 * * * * php /caminho/scripts/subscription_scheduler.php
+   */5 * * * * php /caminho/scripts/mail_queue_worker.php
+   (opcional) */5 * * * * php /caminho/scripts/image_queue_worker.php
+   (opcional) */5 * * * * php /caminho/scripts/notify_new_property_worker.php
+   (opcional) */15 * * * * php /caminho/scripts/report_queue_worker.php
+   Nota: account_deletion_scheduler.php e property_deletion_scheduler.php
+   são wrappers legados; use apenas compliance_deletion_scheduler.php.
+5. Aplique migracoes SQL pendentes (phpMyAdmin), se ainda nao aplicadas no servidor.
+6. Permissoes de escrita em storage/ e public/storage/uploads/
+7. Base de dados vazia: no PC de dev execute
    pwsh -File scripts/reset-database.ps1 -EmptyOnly
    Depois exporte/importe no MySQL da Hostinger (phpMyAdmin).
-7. Primeiro Admin Total: criar manualmente na BD (seed) ou, apos login,
+8. Primeiro Admin Total: criar manualmente na BD (seed) ou, apos login,
    em dashboard/moderateUsers?tab=equipa criar outros administradores.
+9. Validar: php scripts/production-check.php e php scripts/commission_scheduler.php
 
 NAO enviar para o servidor (ficam apenas no ambiente de desenvolvimento):
 - Documentacao (*.md), .github/, phpstan, php-cs-fixer

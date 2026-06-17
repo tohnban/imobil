@@ -35,35 +35,26 @@ $commissionPaymentsTabUrl = static function (string $tab) use ($activeTab): stri
 $pendingGroups = FeedGrouping::byDueUrgency($pendingCommissions, 'due_at');
 ?>
 
-<div class="container dashboard-view notification-inbox-view commission-payments-view payment-account-feed-view">
-    <section class="notification-inbox-hero">
-        <div class="notification-inbox-hero-main">
-            <h1>Comissões a pagar</h1>
-            <p class="notification-inbox-hero-meta">
-                <span>Regularize os valores dos negócios fechados</span>
-                <?php if ($pendingCount > 0): ?>
-                    <span class="notification-feed-dot" aria-hidden="true">·</span>
-                    <span class="notification-inbox-unread-pill"><?php echo (int) $pendingCount; ?> por tratar</span>
-                <?php endif; ?>
-            </p>
-        </div>
-        <div class="notification-inbox-hero-actions">
-            <a href="<?php echo DIRPAGE; ?>dashboard/paymentHistory" class="notification-inbox-text-btn">Ver movimentos</a>
-        </div>
-    </section>
-
-    <?php
-        $commissionError = trim((string) ($_GET['error'] ?? ''));
-        $hideOverdueError = $commissionError !== ''
-            && Src\classes\ClassAuth::check()
-            && App\model\Commission::getOverdueBlockReason((int) (Src\classes\ClassAuth::user()['id'] ?? 0)) !== null;
-    ?>
-    <?php if ($commissionError !== '' && !$hideOverdueError): ?>
-        <div class="sub-feedback error"><?php echo htmlspecialchars($commissionError); ?></div>
-    <?php endif; ?>
-    <?php if (!empty($_GET['success'])): ?>
-        <div class="sub-feedback success"><?php echo htmlspecialchars((string) $_GET['success']); ?></div>
-    <?php endif; ?>
+<?php
+$dashboardPageClass = 'notification-inbox-view commission-payments-view payment-account-feed-view';
+include DIRREQ . 'app/view/partials/dashboard_page_start.php';
+$inboxHeroTitle = 'Comissões a pagar';
+ob_start();
+?>
+<span>Regularize os valores dos negócios fechados</span>
+<?php if ($pendingCount > 0): ?>
+    <span class="notification-feed-dot" aria-hidden="true">·</span>
+    <span class="notification-inbox-unread-pill"><?php echo (int) $pendingCount; ?> por tratar</span>
+<?php endif;
+$inboxHeroMetaHtml = ob_get_clean();
+ob_start();
+?>
+<a href="<?php echo DIRPAGE; ?>dashboard/paymentHistory" class="notification-inbox-text-btn">Ver movimentos</a>
+<?php
+$inboxHeroActionsHtml = ob_get_clean();
+include DIRREQ . 'app/view/partials/dashboard_inbox_hero.php';
+unset($inboxHeroMetaHtml, $inboxHeroActionsHtml);
+?>
 
     <div class="requests-scope-navigation commission-payments-scope">
         <div class="requests-scope-pills">
@@ -143,4 +134,4 @@ $pendingGroups = FeedGrouping::byDueUrgency($pendingCommissions, 'due_at');
             ?>
         </div>
     <?php endif; ?>
-</div>
+<?php include DIRREQ . 'app/view/partials/dashboard_page_end.php'; ?>

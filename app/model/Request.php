@@ -1088,4 +1088,83 @@ class Request extends ManipularBanco
         $stmt->execute();
         return $stmt->fetch(\PDO::FETCH_ASSOC) ?: [];
     }
+
+    /**
+     * @return array<int, int>
+     */
+    public static function getActiveNegotiationParticipantIds(int $propertyId): array
+    {
+        if ($propertyId <= 0) {
+            return [];
+        }
+
+        $db = new self();
+        $sql = "SELECT DISTINCT r.user_id, p.affiliate_id
+                FROM {$db->table} r
+                JOIN properties p ON p.id = r.property_id
+                WHERE r.property_id = ?
+                  AND r.status = 'em_contacto'";
+        $stmt = $db->prepare($sql);
+        $stmt->execute([$propertyId]);
+
+        $ids = [];
+        foreach ($stmt->fetchAll(\PDO::FETCH_ASSOC) ?: [] as $row) {
+            $requesterId = (int) ($row['user_id'] ?? 0);
+            $ownerId = (int) ($row['affiliate_id'] ?? 0);
+            if ($requesterId > 0) {
+                $ids[$requesterId] = $requesterId;
+            }
+            if ($ownerId > 0) {
+                $ids[$ownerId] = $ownerId;
+            }
+        }
+
+        return array_values($ids);
+    }
+
+    public static function hasActiveClosingWonForProperty(int $propertyId): bool
+    {
+        if ($propertyId <= 0) {
+            return false;
+        }
+
+        $db = new self();
+        $sql = "SELECT COUNT(*) FROM {$db->table} WHERE property_id = ? AND status = 'fechado_ganho'";
+        $stmt = $db->prepare($sql);
+        $stmt->execute([$propertyId]);
+
+        return (int) $stmt->fetchColumn() > 0;
+    }
+
+    public static function countOpenNegotiationsForProperty(int $propertyId): int
+    {
+        if ($propertyId <= 0) {
+            return 0;
+        }
+
+        $db = new self();
+        $sql = "SELECT COUNT(*) FROM {$db->table} WHERE property_id = ? AND status = 'em_contacto'";
+        $stmt = $db->prepare($sql);
+        $stmt->execute([$propertyId]);
+
+        return (int) $stmt->fetchColumn();
+    }
+
+    public static function countOpenNegotiationsForOwner(int $ownerId): int
+    {
+        if ($ownerId <= 0) {
+            return 0;
+        }
+
+        $db = new self();
+        $sql = "SELECT COUNT(*)
+                FROM {$db->table} r
+                JOIN properties p ON p.id = r.property_id
+                WHERE p.affiliate_id = ?
+                  AND r.status = 'em_contacto'";
+        $stmt = $db->prepare($sql);
+        $stmt->execute([$ownerId]);
+
+        return (int) $stmt->fetchColumn();
+    }
 }

@@ -5,7 +5,6 @@ $hasCookiePreference = Src\classes\ClassCookieConsent::hasBehavioralPreference()
 $currentViewDir = (string) $this->getDir();
 $isPropertyModerationView = $currentViewDir === 'property/moderate';
 $isDashboardLayout = Src\classes\ClassAuth::check() && (strpos($currentViewDir, 'dashboard/') === 0 || $isPropertyModerationView);
-$isSubscriptionView = $currentViewDir === 'dashboard/subscription';
 $dashboardSection = '';
 if ($isDashboardLayout) {
     $dashboardSection = $isPropertyModerationView ? 'property_moderate' : basename($currentViewDir);
@@ -48,6 +47,20 @@ if ($rawSuccess !== '' && !$suppressGlobalFlash) {
 
 if ($rawError !== '' && !$suppressGlobalFlash) {
     $flashError = ($rawError === '1') ? 'Não foi possível concluir a operação.' : $rawError;
+}
+
+$rawMessage = isset($_GET['message']) ? trim((string) $_GET['message']) : '';
+if ($rawMessage !== '' && $flashSuccess === null && !$suppressGlobalFlash && strpos($currentViewDir, 'dashboard/') === 0) {
+    $flashSuccess = $rawMessage;
+}
+
+if (
+    $flashError !== null
+    && $currentViewDir === 'dashboard/commission_payments'
+    && Src\classes\ClassAuth::check()
+    && App\model\Commission::getOverdueBlockReason((int) (Src\classes\ClassAuth::user()['id'] ?? 0)) !== null
+) {
+    $flashError = null;
 }
 
 $overdueCommission = is_array($headerShell['overdue_commission'] ?? null) ? $headerShell['overdue_commission'] : [];
@@ -122,7 +135,17 @@ $overdueCommissionBannerHref = (string) ($overdueCommission['action_href'] ?? DI
 
     <link rel="preconnect" href="https://i.ytimg.com" crossorigin>
     <link rel="preconnect" href="https://www.youtube-nocookie.com">
-    <link rel="stylesheet" href="<?php echo DIRCSS.'Style.css?v=20260615b'?>">
+    <?php
+        $styleCssPath = rtrim(DIRREQ, '/\\') . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'css' . DIRECTORY_SEPARATOR . 'Style.css';
+        $styleCssVersion = is_file($styleCssPath) ? (string) @filemtime($styleCssPath) : (string) time();
+    ?>
+    <link rel="stylesheet" href="<?php echo DIRCSS . 'Style.css?v=' . $styleCssVersion; ?>">
+    <?php if ($isDashboardLayout):
+        $dashboardExtrasPath = rtrim(DIRREQ, '/\\') . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR . 'css' . DIRECTORY_SEPARATOR . 'DashboardExtras.css';
+        $dashboardExtrasVersion = is_file($dashboardExtrasPath) ? (string) @filemtime($dashboardExtrasPath) : (string) time();
+    ?>
+    <link rel="stylesheet" href="<?php echo DIRCSS . 'DashboardExtras.css?v=' . $dashboardExtrasVersion; ?>">
+    <?php endif; ?>
     <link rel="stylesheet" href="<?php echo DIRPAGE; ?>public/vendor/font-awesome/css/font-awesome.min.css?v=4.7.0">
 </head>
 <body class="<?php
@@ -141,6 +164,7 @@ $overdueCommissionBannerHref = (string) ($overdueCommission['action_href'] ?? DI
     }
     echo implode(' ', $bodyClasses);
 ?>" data-cookie-behavioral="<?php echo htmlspecialchars($cookieConsentValue !== '' ? $cookieConsentValue : 'unknown'); ?>">
+<a href="#main-content" class="skip-to-main">Saltar para o conteúdo</a>
 <?php if ($isAuthLayout): ?>
 <header class="auth-minimal-header">
     <div class="auth-minimal-header-inner">
@@ -180,7 +204,7 @@ $overdueCommissionBannerHref = (string) ($overdueCommission['action_href'] ?? DI
       </button>
 
       <nav class="nav-links" id="menu">
-          <a href="<?php echo DIRPAGE; ?>">Home</a>
+          <a href="<?php echo DIRPAGE; ?>">Início</a>
           <a href="<?php echo DIRPAGE; ?>properties">Imóveis</a>
           <a href="<?php echo DIRPAGE; ?>featured">Destaques</a>
           <?php if (Src\classes\ClassAuth::check()): ?>
@@ -272,7 +296,7 @@ $overdueCommissionBannerHref = (string) ($overdueCommission['action_href'] ?? DI
                   </div>
               </div>
               <?php endif; ?>
-              <a href="<?php echo $isLimitedPlatformUser ? DIRPAGE . 'dashboard/accountStatus' : DIRPAGE . 'profile'; ?>" class="profile" title="<?php echo $isLimitedPlatformUser ? 'A minha conta' : 'Meu Perfil'; ?>">
+              <a href="<?php echo $isLimitedPlatformUser ? DIRPAGE . 'dashboard/accountStatus' : DIRPAGE . 'profile'; ?>" class="profile" title="<?php echo $isLimitedPlatformUser ? 'A minha conta' : 'Meu Perfil'; ?>" aria-label="<?php echo $isLimitedPlatformUser ? 'A minha conta' : 'Meu perfil'; ?>">
                   <div class="profile-img">
                       <?php if (!empty($user['profile_photo'])): ?>
                           <img src="<?php echo htmlspecialchars(\Src\classes\ClassMediaUrl::profilePhoto($user['profile_photo'])); ?>" alt="<?php echo htmlspecialchars($user['name']); ?>">
@@ -283,7 +307,7 @@ $overdueCommissionBannerHref = (string) ($overdueCommission['action_href'] ?? DI
               </a>
           <?php else: ?>
               <a class="btn-secondary" href="<?php echo DIRPAGE; ?>login">Login</a>
-              <a class="btn-primary" href="<?php echo DIRPAGE; ?>register">Registrar</a>
+              <a class="btn-primary" href="<?php echo DIRPAGE; ?>register">Registar</a>
           <?php endif; ?>
       </div>
   </div>
@@ -302,9 +326,9 @@ $overdueCommissionBannerHref = (string) ($overdueCommission['action_href'] ?? DI
     </div>
 <?php endif; ?>
 
-<main class="<?php echo $isDashboardLayout ? 'dashboard-main-shell' : ''; ?>">
-<?php if (!$isAuthLayout && !$isSubscriptionView && ($flashSuccess !== null || $flashError !== null)): ?>
-    <div class="<?php echo $isDashboardLayout ? 'dashboard-shell-alerts' : 'container'; ?>" style="margin-top:16px;">
+<main id="main-content" class="<?php echo $isDashboardLayout ? 'dashboard-main-shell' : ''; ?>">
+<?php if (!$isAuthLayout && ($flashSuccess !== null || $flashError !== null)): ?>
+    <div class="<?php echo $isDashboardLayout ? 'dashboard-shell-alerts' : 'container dashboard-shell-alerts'; ?>">
         <?php if ($flashSuccess !== null): ?>
             <div class="auth-message auth-message-success"><?php echo htmlspecialchars($flashSuccess); ?></div>
         <?php endif; ?>
@@ -348,8 +372,8 @@ $overdueCommissionBannerHref = (string) ($overdueCommission['action_href'] ?? DI
                                 $isDashboardItemActive = $dashboardSection === 'index' && $dashboardView === 'overview';
                             }
                         ?>
-                        <a href="<?php echo $dashboardItem['href']; ?>" class="dashboard-side-link <?php echo $isDashboardItemActive ? 'is-active' : ''; ?>">
-                            <i class="fa <?php echo htmlspecialchars($dashboardItem['icon']); ?>"></i>
+                        <a href="<?php echo $dashboardItem['href']; ?>" class="dashboard-side-link <?php echo $isDashboardItemActive ? 'is-active' : ''; ?>"<?php echo $isDashboardItemActive ? ' aria-current="page"' : ''; ?>>
+                            <i class="fa <?php echo htmlspecialchars($dashboardItem['icon']); ?>" aria-hidden="true"></i>
                             <span><?php echo htmlspecialchars($dashboardItem['label']); ?></span>
                         </a>
                     <?php endforeach; ?>
@@ -416,7 +440,7 @@ $overdueCommissionBannerHref = (string) ($overdueCommission['action_href'] ?? DI
                         <i class="fa fa-chevron-down" aria-hidden="true"></i>
                     </button>
                     <div class="footer-links footer-column-panel is-collapsed" id="footer-panel-explorar">
-                        <a href="<?php echo DIRPAGE; ?>">Home</a>
+                        <a href="<?php echo DIRPAGE; ?>">Início</a>
                         <a href="<?php echo DIRPAGE; ?>properties">Imoveis</a>
                         <a href="<?php echo DIRPAGE; ?>featured">Destaques</a>
                     </div>
@@ -434,7 +458,7 @@ $overdueCommissionBannerHref = (string) ($overdueCommission['action_href'] ?? DI
                             <a href="<?php echo DIRPAGE; ?>logout">Sair</a>
                         <?php else: ?>
                             <a href="<?php echo DIRPAGE; ?>login">Login</a>
-                            <a href="<?php echo DIRPAGE; ?>register">Registrar</a>
+                            <a href="<?php echo DIRPAGE; ?>register">Registar</a>
                         <?php endif; ?>
                     </div>
                 </div>
@@ -466,7 +490,7 @@ $overdueCommissionBannerHref = (string) ($overdueCommission['action_href'] ?? DI
 </footer>
 <?php endif; ?>
 
-<section id="cookieConsentBanner" class="cookie-consent<?php echo $hasCookiePreference ? ' is-hidden' : ''; ?>" role="dialog" aria-live="polite" aria-label="Consentimento de cookies">
+<section id="cookieConsentBanner" class="cookie-consent<?php echo $hasCookiePreference ? ' is-hidden' : ''; ?>" role="dialog" aria-modal="true" aria-live="polite" aria-label="Consentimento de cookies">
     <div class="cookie-consent-card">
         <div class="cookie-consent-copy">
             <strong>Preferencias de cookies</strong>
@@ -482,10 +506,16 @@ $overdueCommissionBannerHref = (string) ($overdueCommission['action_href'] ?? DI
         </div>
     </div>
 </section>
-<script src="<?php echo DIRJS.'upload-limits.js?v=20260612a'?>"></script>
+<?php
+    $uploadLimitsVersion = @filemtime(DIRREQ . 'public/js/upload-limits.js') ?: '20260612a';
+    $heicVersion = @filemtime(DIRREQ . 'public/js/heic2any.min.js') ?: '20260615c';
+    $scriptVersion = @filemtime(DIRREQ . 'public/js/script.js') ?: '20260616a';
+?>
+<script>window.IMOBIL_DIRCSS = <?php echo json_encode(DIRCSS, JSON_UNESCAPED_SLASHES); ?>;</script>
+<script src="<?php echo DIRJS . 'upload-limits.js?v=' . rawurlencode((string) $uploadLimitsVersion); ?>"></script>
 <?php if ($loadHeicConverter): ?>
-<script src="<?php echo DIRJS.'heic2any.min.js?v=20260615c'?>"></script>
+<script src="<?php echo DIRJS . 'heic2any.min.js?v=' . rawurlencode((string) $heicVersion); ?>"></script>
 <?php endif; ?>
-<script src="<?php echo DIRJS.'script.js?v=20260615c'?>"></script>
+<script src="<?php echo DIRJS . 'script.js?v=' . rawurlencode((string) $scriptVersion); ?>"></script>
 </body>
 </html>             

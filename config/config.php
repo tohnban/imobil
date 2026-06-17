@@ -1,10 +1,13 @@
 <?php
 #Arquivos directorios raizes
-$PastaInterna="";
+$PastaInterna = "";
 
-if(substr($_SERVER['DOCUMENT_ROOT'], -1)=='/')
-	{define('DIRREQ',"{$_SERVER['DOCUMENT_ROOT']}{$PastaInterna}");}
-else{define('DIRREQ',"{$_SERVER['DOCUMENT_ROOT']}/{$PastaInterna}");}
+// Determine project root reliably (hosting often points DOCUMENT_ROOT to /public).
+$projectRoot = realpath(__DIR__ . '/..');
+if ($projectRoot === false) {
+    $projectRoot = __DIR__ . '/..';
+}
+define('DIRREQ', rtrim(str_replace('\\', '/', $projectRoot), '/') . '/');
 
 require_once DIRREQ.'src/classes/ClassEnv.php';
 

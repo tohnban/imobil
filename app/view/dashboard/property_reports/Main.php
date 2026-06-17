@@ -13,6 +13,7 @@ $totalAvailable = (int) ($summary['available'] ?? 0);
 $totalSold = (int) ($summary['sold'] ?? 0);
 $totalRented = (int) ($summary['rented'] ?? 0);
 $totalFeatured = (int) ($summary['featured'] ?? 0);
+$totalPendingDeletion = (int) ($summary['pending_deletion'] ?? 0);
 $totalNewMonth = (int) ($summary['new_this_month'] ?? 0);
 
 $totalClosed = $totalSold + $totalRented;
@@ -39,35 +40,14 @@ $purposeLabelMap = [
     'both' => 'Venda/Arrendamento',
 ];
 ?>
-<div class="container dashboard-view property-reports-dashboard-view">
+<?php
+$dashboardPageClass = 'property-reports-dashboard-view';
+include DIRREQ . 'app/view/partials/dashboard_page_start.php';
+?>
 
     <div class="property-reports-shell">
 
-    <section class="property-reports-hero">
-        <div class="property-reports-banner">
-            <span class="property-plan-chip">
-                <i class="fa fa-chart-line" aria-hidden="true"></i>
-                <?php echo htmlspecialchars((string) ($plan['name'] ?? 'Plano')); ?>
-            </span>
-            <h1>Relatórios de Imóveis</h1>
-            <p>Monitore o desempenho da sua carteira, acompanhe ritmo de solicitações e identifique oportunidades de conversão em um único painel.</p>
-        </div>
-
-        <aside class="property-reports-quick">
-            <div class="property-quick-item">
-                <div class="property-quick-label">Taxa de ocupação</div>
-                <div class="property-quick-value"><?php echo $occupancyRate; ?>%</div>
-            </div>
-            <div class="property-quick-item">
-                <div class="property-quick-label">Solicitações (30 dias)</div>
-                <div class="property-quick-value"><?php echo $requests30d; ?></div>
-            </div>
-            <div class="property-quick-item">
-                <div class="property-quick-label">Solicitações (90 dias)</div>
-                <div class="property-quick-value"><?php echo $requests90d; ?></div>
-            </div>
-        </aside>
-    </section>
+    <?php include DIRREQ . 'app/view/partials/property_reports_hero.php'; ?>
 
     <div class="property-kpi-grid">
         <div class="property-kpi-card kpi-accent">
@@ -99,6 +79,14 @@ $purposeLabelMap = [
             <div class="property-kpi-value"><?php echo $totalFeatured; ?></div>
             <div class="property-kpi-helper">Imóveis com maior visibilidade</div>
         </div>
+
+        <?php if ($totalPendingDeletion > 0): ?>
+        <div class="property-kpi-card">
+            <div class="property-kpi-label">A eliminar</div>
+            <div class="property-kpi-value"><?php echo $totalPendingDeletion; ?></div>
+            <div class="property-kpi-helper">Em período de conformidade</div>
+        </div>
+        <?php endif; ?>
 
         <div class="property-kpi-card">
             <div class="property-kpi-label">Novos este mês</div>
@@ -225,4 +213,4 @@ $purposeLabelMap = [
 
     </div>
 
-</div>
+<?php include DIRREQ . 'app/view/partials/dashboard_page_end.php'; ?>

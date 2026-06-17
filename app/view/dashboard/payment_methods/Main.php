@@ -30,11 +30,14 @@ function renderFieldsCheckboxes(array $fieldLabels, array $current = []): void {
     }
 }
 ?>
-<div class="dashboard-content-wrapper">
-    <div class="dashboard-header">
-        <h1>Métodos de Pagamento</h1>
-        <p>Crie, edite ou remova os métodos disponíveis no sistema. Os utilizadores verão automaticamente os métodos ativos com público "Utilizador" ou "Ambos".</p>
-    </div>
+<?php
+$dashboardPageClass = 'payment-config-admin-view';
+include DIRREQ . 'app/view/partials/dashboard_page_start.php';
+$heroKicker = 'Administração';
+$heroTitle = 'Métodos de Pagamento';
+$heroLead = 'Crie, edite ou remova os métodos disponíveis no sistema. Os utilizadores verão automaticamente os métodos ativos com público "Utilizador" ou "Ambos".';
+include DIRREQ . 'app/view/partials/dashboard_view_hero.php';
+?>
 
     <!-- ── Tabela de métodos ─────────────────────────────────── -->
     <div class="dashboard-card">
@@ -43,7 +46,8 @@ function renderFieldsCheckboxes(array $fieldLabels, array $current = []): void {
         </div>
 
         <?php if (!empty($methods)): ?>
-            <table class="dashboard-table">
+            <div class="dashboard-table-wrap payment-config-table-wrap">
+            <table class="dashboard-table payment-config-table">
                 <thead>
                     <tr>
                         <th>Nome</th>
@@ -62,25 +66,25 @@ function renderFieldsCheckboxes(array $fieldLabels, array $current = []): void {
                         $directionLabel = ['incoming' => 'Entrada', 'outgoing' => 'Saída', 'both' => 'Ambos'][$method['direction']] ?? 'N/A';
                         $audienceLabel  = ['system' => 'Sistema', 'user' => 'Utilizador', 'both' => 'Ambos'][$method['audience']] ?? 'N/A';
                     ?>
-                        <tr>
-                            <td><?php echo htmlspecialchars($method['name']); ?></td>
-                            <td><code><?php echo htmlspecialchars($method['code']); ?></code></td>
-                            <td><?php echo $directionLabel; ?></td>
-                            <td><?php echo $audienceLabel; ?></td>
-                            <td class="dashboard-inline-note">
+                        <tr class="payment-config-row">
+                            <td data-label="Nome"><?php echo htmlspecialchars($method['name']); ?></td>
+                            <td data-label="Código"><code><?php echo htmlspecialchars($method['code']); ?></code></td>
+                            <td data-label="Direção"><?php echo $directionLabel; ?></td>
+                            <td data-label="Público"><?php echo $audienceLabel; ?></td>
+                            <td class="dashboard-inline-note" data-label="Campos activos">
                                 <?php
                                 $labels = array_map(fn($f) => $fieldLabels[$f] ?? $f, $activeFields);
                                 echo $labels ? implode(', ', array_map('htmlspecialchars', $labels)) : '—';
                                 ?>
                             </td>
-                            <td>
+                            <td data-label="Estado">
                                 <span class="dashboard-chip <?php echo $method['is_active'] ? 'dashboard-chip-success' : 'dashboard-chip-neutral'; ?>">
                                     <?php echo $method['is_active'] ? 'Ativo' : 'Inativo'; ?>
                                 </span>
                             </td>
-                            <td style="white-space:nowrap">
+                            <td data-label="Ações" class="col-actions payment-config-actions">
                                 <!-- Toggle -->
-                                <form action="<?php echo DIRPAGE; ?>payment_methods/toggleMethod/<?php echo (int)$method['id']; ?>" method="POST" class="dashboard-inline-form">
+                                <form action="<?php echo DIRPAGE; ?>payment_methods/toggleMethod/<?php echo (int)$method['id']; ?>" method="POST" class="dashboard-inline-form payment-config-inline-form">
                                     <?php echo $csrfField; ?>
                                     <button type="submit" class="dashboard-btn dashboard-btn-small">
                                         <?php echo $method['is_active'] ? 'Desativar' : 'Ativar'; ?>
@@ -91,7 +95,7 @@ function renderFieldsCheckboxes(array $fieldLabels, array $current = []): void {
                                    class="dashboard-btn dashboard-btn-small">Editar</a>
                                 <!-- Delete -->
                                 <form action="<?php echo DIRPAGE; ?>payment_methods/deleteMethod/<?php echo (int)$method['id']; ?>" method="POST"
-                                      class="dashboard-inline-form"
+                                      class="dashboard-inline-form payment-config-inline-form"
                                                                             data-confirm="Remover este método?">
                                     <?php echo $csrfField; ?>
                                     <button type="submit" class="dashboard-btn dashboard-btn-small dashboard-btn-danger">Remover</button>
@@ -101,6 +105,7 @@ function renderFieldsCheckboxes(array $fieldLabels, array $current = []): void {
                     <?php endforeach; ?>
                 </tbody>
             </table>
+            </div>
         <?php else: ?>
             <p class="dashboard-empty-copy">Nenhum método configurado. Adicione um abaixo.</p>
         <?php endif; ?>
@@ -224,4 +229,4 @@ function renderFieldsCheckboxes(array $fieldLabels, array $current = []): void {
             <button type="submit" class="dashboard-btn dashboard-btn-primary">Criar Método</button>
         </form>
     </div>
-</div>
+<?php include DIRREQ . 'app/view/partials/dashboard_page_end.php'; ?>

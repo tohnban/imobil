@@ -154,6 +154,9 @@ class ControllerDashboardAdmin
                 'behavior_home_carousel_size',
                 'behavior_continue_exploring_size',
                 'behavior_promoted_interval',
+                'account_deletion_grace_days',
+                'property_deletion_grace_days',
+                'deletion_reminder_days_before',
             ];
 
             $integerKeys = [
@@ -178,6 +181,9 @@ class ControllerDashboardAdmin
                 'behavior_home_carousel_size',
                 'behavior_continue_exploring_size',
                 'behavior_promoted_interval',
+                'account_deletion_grace_days',
+                'property_deletion_grace_days',
+                'deletion_reminder_days_before',
             ];
 
             $booleanKeys = [

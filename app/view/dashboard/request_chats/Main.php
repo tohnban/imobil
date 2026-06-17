@@ -67,30 +67,33 @@ use Src\classes\FeedGrouping;
     );
 ?>
 
-<div class="container dashboard-view notification-inbox-view requests-inbox-view request-chats-inbox-view request-chats-dashboard-view<?php echo $hasChatSelected ? ' has-chat-selected' : ''; ?>"
-     data-chat-mark-read-url="<?php echo DIRPAGE; ?>dashboard/requestChatMarkRead/"
-     data-chat-mark-unread-url="<?php echo DIRPAGE; ?>dashboard/requestChatMarkUnread/"
-     data-chat-summaries-feed-url="<?php echo DIRPAGE; ?>dashboard/requestChatSummariesFeed?view=<?php echo urlencode($requestView); ?>">
-
-    <section class="notification-inbox-hero request-chats-inbox-hero <?php echo $hasChatSelected ? 'is-chat-open' : ''; ?>">
-        <div class="notification-inbox-hero-main">
-            <h1><?php echo htmlspecialchars($pageTitle ?? 'Conversas de Negociação'); ?></h1>
-            <p class="notification-inbox-hero-meta">
-                <span><?php echo (int) $requestCount; ?> negociação<?php echo $requestCount === 1 ? '' : 'ões'; ?></span>
-                <?php if ($unreadTotal > 0): ?>
-                    <span class="notification-feed-dot" aria-hidden="true">·</span>
-                    <span class="notification-inbox-unread-pill"><?php echo (int) $unreadTotal; ?> não lidas</span>
-                <?php endif; ?>
-            </p>
-        </div>
-        <div class="notification-inbox-hero-actions">
-            <a href="<?php echo DIRPAGE; ?>requests<?php echo $requestView !== '' ? ('?view=' . urlencode($requestView)) : ''; ?>" class="notification-inbox-text-btn">Solicitações</a>
-        </div>
-    </section>
-
-    <?php if (!empty($_GET['error'])): ?>
-        <div class="sub-feedback error"><?php echo htmlspecialchars((string) $_GET['error']); ?></div>
-    <?php endif; ?>
+<?php
+$dashboardPageClass = 'notification-inbox-view requests-inbox-view request-chats-inbox-view request-chats-dashboard-view' . ($hasChatSelected ? ' has-chat-selected' : '');
+$dashboardPageAttrs = sprintf(
+    'data-chat-mark-read-url="%s" data-chat-mark-unread-url="%s" data-chat-summaries-feed-url="%s"',
+    htmlspecialchars(DIRPAGE . 'dashboard/requestChatMarkRead/', ENT_QUOTES, 'UTF-8'),
+    htmlspecialchars(DIRPAGE . 'dashboard/requestChatMarkUnread/', ENT_QUOTES, 'UTF-8'),
+    htmlspecialchars(DIRPAGE . 'dashboard/requestChatSummariesFeed?view=' . urlencode($requestView), ENT_QUOTES, 'UTF-8')
+);
+include DIRREQ . 'app/view/partials/dashboard_page_start.php';
+$inboxHeroTitle = (string) ($pageTitle ?? 'Conversas de Negociação');
+$inboxHeroClass = 'request-chats-inbox-hero' . ($hasChatSelected ? ' is-chat-open' : '');
+ob_start();
+?>
+<span><?php echo (int) $requestCount; ?> negociação<?php echo $requestCount === 1 ? '' : 'ões'; ?></span>
+<?php if ($unreadTotal > 0): ?>
+    <span class="notification-feed-dot" aria-hidden="true">·</span>
+    <span class="notification-inbox-unread-pill"><?php echo (int) $unreadTotal; ?> não lidas</span>
+<?php endif;
+$inboxHeroMetaHtml = ob_get_clean();
+ob_start();
+?>
+<a href="<?php echo DIRPAGE; ?>requests<?php echo $requestView !== '' ? ('?view=' . urlencode($requestView)) : ''; ?>" class="notification-inbox-text-btn">Solicitações</a>
+<?php
+$inboxHeroActionsHtml = ob_get_clean();
+include DIRREQ . 'app/view/partials/dashboard_inbox_hero.php';
+unset($inboxHeroMetaHtml, $inboxHeroActionsHtml);
+?>
 
     <?php if ($scope === 'owner'): ?>
         <?php $requestView = $requestView !== '' ? $requestView : 'received'; ?>
@@ -157,4 +160,4 @@ use Src\classes\FeedGrouping;
             </section>
         </div>
     </div>
-</div>
+<?php include DIRREQ . 'app/view/partials/dashboard_page_end.php'; ?>

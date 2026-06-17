@@ -49,21 +49,13 @@ $affiliateStatusChipClass = static function (string $status): array {
     return $map[$status] ?? ['–', 'dashboard-chip'];
 };
 ?>
-<div class="container dashboard-view notification-inbox-view afiliados-dashboard-view">
-    <section class="notification-inbox-hero">
-        <div class="notification-inbox-hero-main">
-            <h1>Afiliados</h1>
-            <p class="notification-inbox-hero-meta">
-                <span>Indicações, comissões e promotores dos seus imóveis</span>
-            </p>
-        </div>
-    </section>
-
-    <?php if (!empty($_GET['error'])): ?>
-        <div class="sub-feedback error"><?php echo htmlspecialchars((string) $_GET['error']); ?></div>
-    <?php elseif (!empty($_GET['success'])): ?>
-        <div class="sub-feedback success"><?php echo htmlspecialchars((string) $_GET['success']); ?></div>
-    <?php endif; ?>
+<?php
+$dashboardPageClass = 'notification-inbox-view afiliados-dashboard-view';
+include DIRREQ . 'app/view/partials/dashboard_page_start.php';
+$inboxHeroTitle = 'Afiliados';
+$inboxHeroMeta = 'Indicações, comissões e promotores dos seus imóveis';
+include DIRREQ . 'app/view/partials/dashboard_inbox_hero.php';
+?>
 
     <div class="requests-scope-navigation afiliados-scope-nav">
         <div class="requests-scope-pills afiliados-tab-pills">
@@ -200,103 +192,19 @@ $affiliateStatusChipClass = static function (string $status): array {
     <?php elseif ($activeTab === 'commissions' && $isAffiliate): ?>
 
         <!-- ── COMISSÕES ── -->
-        <div class="dashboard-overview-grid dashboard-overview-grid-tight dashboard-kpi-section afiliados-kpis">
-            <div class="kpi-card">
-                <div class="kpi-label">Total gerado</div>
-                <div class="kpi-value"><?php echo number_format((float) ($summary['earned_total'] ?? 0), 0, ',', '.'); ?> Kz</div>
-            </div>
-            <div class="kpi-card kpi-green">
-                <div class="kpi-label">Já recebido</div>
-                <div class="kpi-value"><?php echo number_format((float) ($summary['earned_paid'] ?? 0), 0, ',', '.'); ?> Kz</div>
-            </div>
-            <div class="kpi-card kpi-yellow">
-                <div class="kpi-label">Pendente</div>
-                <div class="kpi-value"><?php echo number_format((float) ($summary['earned_pending'] ?? 0), 0, ',', '.'); ?> Kz</div>
-            </div>
-            <div class="kpi-card kpi-blue">
-                <div class="kpi-label">Este mês</div>
-                <div class="kpi-value"><?php echo number_format((float) ($summary['earned_this_month'] ?? 0), 0, ',', '.'); ?> Kz</div>
-            </div>
-        </div>
-
-        <div class="dashboard-module-card">
-            <div class="dashboard-module-head compact">
-                <div>
-                    <span class="dashboard-module-kicker">Histórico</span>
-                    <h3>Lançamentos de Comissão</h3>
-                </div>
-            </div>
-
-            <div class="dashboard-table-wrap afiliados-table-wrap">
-            <table class="commissions-table afiliados-table">
-                <thead>
-                    <tr>
-                        <th>Imóvel</th>
-                        <th>Meu valor</th>
-                        <th>Sistema</th>
-                        <th>Total</th>
-                        <th>Estado</th>
-                        <th>Referência</th>
-                        <th>Data</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <?php if (!empty($commissions)): ?>
-                        <?php foreach ($commissions as $commission): ?>
-                            <tr class="afiliados-row">
-                                <td data-label="Imóvel"><?php echo htmlspecialchars($commission['title']); ?></td>
-                                <td data-label="Meu valor">
-                                    <?php echo number_format((float) ($commission['affiliate_amount'] ?? 0), 0, ',', '.'); ?> Kz
-                                    <span class="dashboard-inline-note">(<?php echo number_format((float) ($commission['affiliate_pct'] ?? 0), 2, ',', '.'); ?>%)</span>
-                                </td>
-                                <td data-label="Sistema"><?php echo number_format((float) ($commission['system_amount'] ?? 0), 0, ',', '.'); ?> Kz</td>
-                                <td data-label="Total"><?php echo number_format((float) $commission['amount'], 0, ',', '.'); ?> Kz</td>
-                                <td data-label="Estado">
-                                    <?php
-                                        $affiliateSt = App\model\Commission::affiliateDisplayStatus($commission);
-                                        $stLabel = App\model\Commission::affiliateDisplayStatusLabel($affiliateSt);
-                                        $stKey = in_array($affiliateSt, ['pago', 'pendente', 'aguardando_pagamento', 'cancelado'], true)
-                                            ? ($affiliateSt === 'aguardando_pagamento' ? 'em_analise' : $affiliateSt)
-                                            : 'pendente';
-                                    ?>
-                                    <span class="commission-status-badge commission-status-<?php echo htmlspecialchars($stKey); ?>"><?php echo htmlspecialchars($stLabel); ?></span>
-                                </td>
-                                <td class="dashboard-inline-note" data-label="Referência"><?php echo htmlspecialchars($commission['payment_reference'] ?? '–'); ?></td>
-                                <td class="dashboard-cell-nowrap" data-label="Data"><?php echo date('d/m/Y', strtotime($commission['created_at'])); ?></td>
-                            </tr>
-                        <?php endforeach; ?>
-                    <?php else: ?>
-                        <tr class="afiliados-empty-row">
-                            <td colspan="7">
-                                <div class="empty-state-content">
-                                    <i class="fa fa-money"></i>
-                                    <p>Nenhuma comissão registada ainda. Indique imóveis para começar a ganhar.</p>
-                                </div>
-                            </td>
-                        </tr>
-                    <?php endif; ?>
-                </tbody>
-            </table>
-            </div>
-
-            <?php if ($commissionsTotal > 0): ?>
-                <p class="dashboard-pagination-copy afiliados-pagination-copy">
-                    A mostrar <?php echo count($commissions ?? []); ?> de <?php echo $commissionsTotal; ?>.
-                </p>
-            <?php endif; ?>
-
-            <?php if ($totalPages > 1): ?>
-                <div class="dashboard-pagination-wrap dashboard-pagination-wrap-start">
-                    <?php if ($page > 1): ?>
-                        <a href="<?php echo afiliadosTabUrl('commissions', $page - 1); ?>" class="btn-secondary">&larr; Anterior</a>
-                    <?php endif; ?>
-                    <span class="dashboard-pagination-copy">Página <?php echo $page; ?> de <?php echo $totalPages; ?></span>
-                    <?php if ($page < $totalPages): ?>
-                        <a href="<?php echo afiliadosTabUrl('commissions', $page + 1); ?>" class="btn-secondary">Próxima &rarr;</a>
-                    <?php endif; ?>
-                </div>
-            <?php endif; ?>
-        </div>
+        <?php
+            include __DIR__ . '/../../partials/affiliate_commission_kpis.php';
+            $affiliateCommissionEmptyMessage = 'Nenhuma comissão registada ainda. Indique imóveis para começar a ganhar.';
+            $affiliateCommissionResponsive = true;
+            $paginationCountCopy = $commissionsTotal > 0
+                ? 'A mostrar ' . count($commissions ?? []) . ' de ' . $commissionsTotal . '.'
+                : null;
+            $paginationPage = $page;
+            $paginationTotalPages = $totalPages;
+            $paginationPrevUrl = $page > 1 ? afiliadosTabUrl('commissions', $page - 1) : null;
+            $paginationNextUrl = $page < $totalPages ? afiliadosTabUrl('commissions', $page + 1) : null;
+            include __DIR__ . '/../../partials/affiliate_commission_history_table.php';
+        ?>
 
     <?php else: ?>
 
@@ -371,7 +279,7 @@ $affiliateStatusChipClass = static function (string $status): array {
                             </thead>
                             <tbody>
                                 <?php foreach ($property['rows'] as $aff): ?>
-                                    <tr class="afiliados-row">
+                                    <tr class="afiliados-row" data-affiliate-request-id="<?php echo (int) ($aff['affiliate_request_id'] ?? 0); ?>">
                                         <td data-label="<?php echo htmlspecialchars($affiliateColLabel); ?>">
                                             <?php
                                                 $affiliateHandle = htmlspecialchars(Src\classes\UserDisplay::publicHandleFromRow($aff, 'affiliate_username', 'affiliate_name', '–'));
@@ -408,11 +316,11 @@ $affiliateStatusChipClass = static function (string $status): array {
                                         <td class="col-actions" data-label="Ações">
                                             <?php if ($aff['affiliate_status'] === 'pendente'): ?>
                                                 <div class="afiliados-row-actions">
-                                                    <form action="<?php echo DIRPAGE; ?>request/approveAffiliate/<?php echo (int) $aff['affiliate_request_id']; ?>" method="POST">
+                                                    <form action="<?php echo DIRPAGE; ?>request/approveAffiliate/<?php echo (int) $aff['affiliate_request_id']; ?>" method="POST" class="ajax-form-inline" data-ajax-action="affiliate-decision">
                                                         <?php echo $csrfField; ?>
                                                         <button type="submit" class="btn-primary">Aprovar</button>
                                                     </form>
-                                                    <form action="<?php echo DIRPAGE; ?>request/rejectAffiliate/<?php echo (int) $aff['affiliate_request_id']; ?>" method="POST">
+                                                    <form action="<?php echo DIRPAGE; ?>request/rejectAffiliate/<?php echo (int) $aff['affiliate_request_id']; ?>" method="POST" class="ajax-form-inline" data-ajax-action="affiliate-decision" data-confirm="Rejeitar esta solicitação de afiliação?">
                                                         <?php echo $csrfField; ?>
                                                         <button type="submit" class="btn-secondary">Rejeitar</button>
                                                     </form>
@@ -429,28 +337,20 @@ $affiliateStatusChipClass = static function (string $status): array {
                 </div>
             <?php endforeach; ?>
 
-            <?php if ($myAffiliatesTotal > 0): ?>
-                <p class="dashboard-pagination-copy afiliados-pagination-copy">
-                    <?php if ($isRequestsTab): ?>
-                        A mostrar <?php echo count($my_affiliates ?? []); ?> pedido(s) pendente(s) de <?php echo $myAffiliatesTotal; ?>.
-                    <?php else: ?>
-                        A mostrar <?php echo count($my_affiliates ?? []); ?> afiliação(ões) de <?php echo $myAffiliatesTotal; ?>.
-                    <?php endif; ?>
-                </p>
-            <?php endif; ?>
-
-            <?php if ($totalPages > 1): ?>
-                <div class="dashboard-pagination-wrap dashboard-pagination-wrap-start">
-                    <?php if ($page > 1): ?>
-                        <a href="<?php echo afiliadosTabUrl($activeTab, $page - 1); ?>" class="btn-secondary">&larr; Anterior</a>
-                    <?php endif; ?>
-                    <span class="dashboard-pagination-copy">Página <?php echo $page; ?> de <?php echo $totalPages; ?></span>
-                    <?php if ($page < $totalPages): ?>
-                        <a href="<?php echo afiliadosTabUrl($activeTab, $page + 1); ?>" class="btn-secondary">Próxima &rarr;</a>
-                    <?php endif; ?>
-                </div>
-            <?php endif; ?>
+            <?php
+                $paginationCountCopy = null;
+                if ($myAffiliatesTotal > 0) {
+                    $paginationCountCopy = $isRequestsTab
+                        ? 'A mostrar ' . count($my_affiliates ?? []) . ' pedido(s) pendente(s) de ' . $myAffiliatesTotal . '.'
+                        : 'A mostrar ' . count($my_affiliates ?? []) . ' afiliação(ões) de ' . $myAffiliatesTotal . '.';
+                }
+                $paginationPage = $page;
+                $paginationTotalPages = $totalPages;
+                $paginationPrevUrl = $page > 1 ? afiliadosTabUrl($activeTab, $page - 1) : null;
+                $paginationNextUrl = $page < $totalPages ? afiliadosTabUrl($activeTab, $page + 1) : null;
+                include __DIR__ . '/../../partials/dashboard_pagination.php';
+            ?>
         <?php endif; ?>
 
     <?php endif; ?>
-</div>
+<?php include DIRREQ . 'app/view/partials/dashboard_page_end.php'; ?>

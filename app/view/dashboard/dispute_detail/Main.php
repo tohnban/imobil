@@ -1,5 +1,6 @@
-<div class="container dashboard-view dispute-detail-view">
-    <?php
+<?php
+$dashboardPageClass = 'dispute-detail-view';
+include DIRREQ . 'app/view/partials/dashboard_page_start.php';
         $request = is_array($request ?? null) ? $request : [];
         $timeline = is_array($timeline ?? null) ? $timeline : [];
         $decision = is_array($decision ?? null) ? $decision : null;
@@ -10,15 +11,11 @@
         $statusLabel = App\model\Request::statusLabel($commercialStatus, $closingConfirmationStatus);
         $confirmationLabel = App\model\Request::closingConfirmationLabel($closingConfirmationStatus);
         $requestId = (int) ($request['id'] ?? 0);
-    ?>
-
-    <section class="dashboard-view-hero compact">
-        <div>
-            <span class="dashboard-hero-kicker">Disputa #<?php echo $requestId; ?></span>
-            <h1>Detalhe da Disputa</h1>
-            <p>Linha do tempo completa da negociação, com fundamentação e evidências para decisão de moderação.</p>
-        </div>
-    </section>
+$heroKicker = 'Disputa #' . $requestId;
+$heroTitle = 'Detalhe da Disputa';
+$heroLead = 'Linha do tempo completa da negociação, com fundamentação e evidências para decisão de moderação.';
+include DIRREQ . 'app/view/partials/dashboard_view_hero.php';
+?>
 
     <div class="dashboard-module-card dispute-detail-grid">
         <article class="dispute-summary-card">
@@ -181,4 +178,4 @@
             <p class="dashboard-inline-note">Ainda não existem registros no histórico desta solicitação.</p>
         <?php endif; ?>
     </div>
-</div>
+<?php include DIRREQ . 'app/view/partials/dashboard_page_end.php'; ?>

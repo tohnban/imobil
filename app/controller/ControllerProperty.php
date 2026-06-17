@@ -77,6 +77,16 @@ class ControllerProperty
         $this->ownerController()->setStatus($id);
     }
 
+    public function requestDeletion($id)
+    {
+        $this->ownerController()->requestDeletion($id);
+    }
+
+    public function cancelDeletion($id)
+    {
+        $this->ownerController()->cancelDeletion($id);
+    }
+
     public function requestBoost($id)
     {
         $this->ownerController()->requestBoost($id);

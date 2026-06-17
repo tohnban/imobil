@@ -1,6 +1,6 @@
 -- =============================================================================
 -- Imobil — schema consolidado para fresh install
--- Estado alinhado com migrações em scripts/ e raiz até 2026-06-12 (inclusive)
+-- Estado alinhado com migrações em scripts/ e raiz até 2026-06-16 (inclusive)
 -- Bases existentes: aplicar scripts/migration_*.sql incrementalmente
 --
 -- Tabelas (ordem de dependência):
@@ -39,6 +39,9 @@ CREATE TABLE users (
     role ENUM('super_admin', 'moderador', 'financeiro', 'suporte', 'utilizador') DEFAULT 'utilizador',
     status ENUM('pendente', 'ativo', 'rejeitado') DEFAULT 'pendente',
     suspended_until TIMESTAMP NULL,
+    deletion_requested_at TIMESTAMP NULL DEFAULT NULL,
+    deletion_scheduled_at TIMESTAMP NULL DEFAULT NULL,
+    deletion_reminder_sent_at TIMESTAMP NULL DEFAULT NULL,
     account_plan ENUM('free', 'premium') NOT NULL DEFAULT 'free'
         COMMENT 'DEPRECATED: use user_subscriptions + subscription_plans',
     trust_badge_status ENUM('nenhum', 'pendente', 'aprovado', 'rejeitado') DEFAULT 'nenhum',
@@ -50,7 +53,8 @@ CREATE TABLE users (
     trust_badge_payment_proof VARCHAR(255) NULL,
     document_file VARCHAR(255),
     profile_photo VARCHAR(255),
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    INDEX idx_users_deletion_scheduled (deletion_scheduled_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE password_resets (
@@ -354,7 +358,12 @@ CREATE TABLE properties (
     has_pool TINYINT(1) NOT NULL DEFAULT 0,
     has_elevator TINYINT(1) NOT NULL DEFAULT 0,
     has_security TINYINT(1) NOT NULL DEFAULT 0,
-    status ENUM('pendente', 'em_analise', 'disponivel', 'vendido', 'alugado', 'rejeitado') DEFAULT 'pendente',
+    status ENUM('pendente', 'em_analise', 'disponivel', 'vendido', 'alugado', 'rejeitado', 'eliminado') DEFAULT 'pendente',
+    deletion_requested_at TIMESTAMP NULL DEFAULT NULL,
+    deletion_scheduled_at TIMESTAMP NULL DEFAULT NULL,
+    deletion_reminder_sent_at TIMESTAMP NULL DEFAULT NULL,
+    deletion_purged_at TIMESTAMP NULL DEFAULT NULL,
+    deletion_previous_status VARCHAR(32) NULL DEFAULT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     INDEX idx_properties_type (type),
     INDEX idx_properties_country (country_id),
@@ -373,6 +382,7 @@ CREATE TABLE properties (
     INDEX idx_properties_area (area),
     INDEX idx_properties_status_affiliate_created_at (status, affiliate_id, created_at),
     INDEX idx_properties_affiliate_status_created (affiliate_id, status, created_at),
+    INDEX idx_properties_deletion_scheduled (deletion_scheduled_at),
     FULLTEXT INDEX idx_properties_fulltext_title_description_location (title, description, location),
     FOREIGN KEY (affiliate_id) REFERENCES users(id),
     FOREIGN KEY (country_id) REFERENCES countries(id),
@@ -899,7 +909,11 @@ INSERT INTO settings (`key`, value, label, description) VALUES
     ('rate_limit_auth_reset_max', '10', 'Limite de reset por janela', 'Redefinições por IP/rota.'),
     ('rate_limit_auth_reset_window_seconds', '600', 'Janela rate limit reset (s)', 'Janela de redefinição.'),
     ('rate_limit_api_max', '120', 'Limite API por rota', 'Pedidos API por IP/rota.'),
-    ('rate_limit_api_window_seconds', '60', 'Janela API por rota (s)', 'Janela dos endpoints web API.')
+    ('rate_limit_api_window_seconds', '60', 'Janela API por rota (s)', 'Janela dos endpoints web API.'),
+    ('account_deletion_grace_days', '60', 'Dias de conformidade antes de eliminar conta', 'Após o utilizador solicitar a eliminação, a conta fica inacessível durante este período. No fim, o sistema elimina a conta automaticamente.'),
+    ('property_deletion_grace_days', '30', 'Dias de conformidade antes de eliminar imóvel', 'Após o proprietário solicitar a eliminação, o imóvel fica indisponível ao público durante este período. Continua visível em conversas e negociações com estado «eliminado». No fim, o sistema remove o anúncio do portfólio.'),
+    ('deletion_reminder_days_before', '7', 'Aviso antes da eliminação (dias)', 'Quantos dias antes da data agendada enviar email de lembrete ao utilizador (conta ou imóvel).'),
+    ('deletion_overdue_alert_last_sent_at', '', 'Último alerta de eliminação em atraso', 'Timestamp interno do último email de alerta a admins sobre eliminações em atraso (rate-limit).')
 ON DUPLICATE KEY UPDATE value = VALUES(value), label = VALUES(label), description = VALUES(description);
 
 -- Password hash: "password" (bcrypt)

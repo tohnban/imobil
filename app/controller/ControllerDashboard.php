@@ -274,6 +274,16 @@ class ControllerDashboard
         $this->dashboardModeration()->unsuspendUserAccess($id);
     }
 
+    public function purgeUserAccountNow($id)
+    {
+        $this->dashboardModeration()->purgeUserAccountNow($id);
+    }
+
+    public function cancelUserDeletion($id)
+    {
+        $this->dashboardModeration()->cancelUserDeletion($id);
+    }
+
     public function setAdminRole($id)
     {
         $this->dashboardModeration()->setAdminRole($id);
@@ -334,6 +344,26 @@ class ControllerDashboard
         $this->dashboardModeration()->submitAccountDocument();
     }
 
+    public function createAdministrativeUser()
+    {
+        $this->dashboardModeration()->createAdministrativeUser();
+    }
+
+    public function revokeAdministrativeAccess($id)
+    {
+        $this->dashboardModeration()->revokeAdministrativeAccess($id);
+    }
+
+    public function suspendAdministrativeAccess($id)
+    {
+        $this->dashboardModeration()->suspendAdministrativeAccess($id);
+    }
+
+    public function unsuspendAdministrativeAccess($id)
+    {
+        $this->dashboardModeration()->unsuspendAdministrativeAccess($id);
+    }
+
 
     private ?ControllerDashboardProfile $dashboardProfile = null;
 
@@ -345,6 +375,21 @@ class ControllerDashboard
     public function accountStatus()
     {
         $this->dashboardProfile()->accountStatus();
+    }
+
+    public function accountDeletionStatus()
+    {
+        $this->dashboardProfile()->accountDeletionStatus();
+    }
+
+    public function requestAccountDeletion()
+    {
+        $this->dashboardProfile()->requestAccountDeletion();
+    }
+
+    public function cancelAccountDeletion()
+    {
+        $this->dashboardProfile()->cancelAccountDeletion();
     }
 
     public function profile()

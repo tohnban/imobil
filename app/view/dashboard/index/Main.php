@@ -57,7 +57,7 @@ $quickActions[] = ['href' => DIRPAGE . 'requests', 'icon' => 'fa-inbox', 'title'
 $quickActions[] = ['href' => DIRPAGE . 'dashboard/requestChats', 'icon' => 'fa-comments', 'title' => 'Conversas', 'description' => 'Mensagens das suas negociações.'];
 
 if (!empty($user['is_affiliate'])) {
-    $quickActions[] = ['href' => DIRPAGE . 'commissions', 'icon' => 'fa-money', 'title' => 'Comissões', 'description' => 'Valores pagos e por pagar.'];
+    $quickActions[] = ['href' => DIRPAGE . 'dashboard/afiliados?tab=commissions', 'icon' => 'fa-money', 'title' => 'Comissões', 'description' => 'Valores pagos e por pagar.'];
     $quickActions[] = ['href' => DIRPAGE . 'referrals', 'icon' => 'fa-link', 'title' => 'Indicações', 'description' => 'Links e alcance dos seus anúncios.'];
 }
 if (Src\classes\ClassAccess::can('users.review', $user)) {
@@ -84,7 +84,10 @@ if (Src\classes\ClassAccess::can('audit.view', $user)) {
 
 ?>
 
-<div class="container dashboard-home dashboard-home-overview">
+<?php
+$dashboardPageBase = 'container dashboard-home dashboard-home-overview';
+include DIRREQ . 'app/view/partials/dashboard_page_start.php';
+?>
     <section class="dashboard-hero-panel dashboard-hero-panel--overview">
         <div class="dashboard-hero-copy">
             <span class="dashboard-hero-kicker">A sua conta</span>
@@ -260,4 +263,4 @@ if (Src\classes\ClassAccess::can('audit.view', $user)) {
             </div>
         </div>
     </section>
-</div>
+<?php include DIRREQ . 'app/view/partials/dashboard_page_end.php'; ?>

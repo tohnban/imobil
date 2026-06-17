@@ -12,6 +12,12 @@ final class DashboardMenuBuilder
      */
     public static function build(array $user): array
     {
+        if (ClassAccess::isPendingAccountDeletion($user)) {
+            return [
+                ['key' => 'account_deletion', 'label' => 'Eliminação de conta', 'icon' => 'fa-hourglass-half', 'href' => DIRPAGE . 'dashboard/accountDeletionStatus'],
+            ];
+        }
+
         if (ClassAccess::hasLimitedPlatformAccess($user)) {
             return [
                 ['key' => 'account_status', 'label' => 'A minha conta', 'icon' => 'fa-hourglass-half', 'href' => DIRPAGE . 'dashboard/accountStatus'],

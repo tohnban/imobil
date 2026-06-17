@@ -73,6 +73,25 @@ class ApiToken extends ManipularBanco
         return $stmt->execute([$id]);
     }
 
+    public static function revokeAllForUser(int $userId): int
+    {
+        if ($userId <= 0) {
+            return 0;
+        }
+
+        $db = new self();
+        $sql = "UPDATE {$db->table}
+                SET status = 'revoked', updated_at = NOW()
+                WHERE user_id = ?
+                  AND status = 'active'";
+        $stmt = $db->prepare($sql);
+        if (!$stmt->execute([$userId])) {
+            return 0;
+        }
+
+        return $stmt->rowCount();
+    }
+
     public static function createToken(int $userId = 0, string $name = 'API Token', string $scopes = 'read:properties', ?string $expiresAt = null): ?string
     {
         $db = new self();

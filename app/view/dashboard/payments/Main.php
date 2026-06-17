@@ -45,21 +45,14 @@ function paymentsTabUrl(string $tab, int $targetPage = 1, string $section = ''):
 }
 ?>
 
-<div class="container dashboard-view payments-admin-view">
-    <section class="dashboard-view-hero compact">
-        <div>
-            <span class="dashboard-hero-kicker">Financeiro</span>
-            <h1>Central de Pagamentos</h1>
-            <p>Gerencie confirmações financeiras de comissões, destaques de imóveis e selo de confiança.</p>
-        </div>
-    </section>
-
-    <?php if (!empty($_GET['error'])): ?>
-        <div class="sub-feedback error"><?php echo htmlspecialchars((string) $_GET['error']); ?></div>
-    <?php endif; ?>
-    <?php if (!empty($_GET['success'])): ?>
-        <div class="sub-feedback success"><?php echo htmlspecialchars((string) $_GET['success']); ?></div>
-    <?php endif; ?>
+<?php
+$dashboardPageClass = 'payments-admin-view';
+include DIRREQ . 'app/view/partials/dashboard_page_start.php';
+$heroKicker = 'Financeiro';
+$heroTitle = 'Central de Pagamentos';
+$heroLead = 'Gerencie confirmações financeiras de comissões, destaques de imóveis e selo de confiança.';
+include DIRREQ . 'app/view/partials/dashboard_view_hero.php';
+?>
 
     <div class="dashboard-overview-grid dashboard-overview-grid-tight dashboard-kpi-section">
         <div class="kpi-card kpi-yellow">
@@ -838,4 +831,4 @@ function paymentsTabUrl(string $tab, int $targetPage = 1, string $section = ''):
     </div>
     <?php endif; ?>
 
-</div>
+<?php include DIRREQ . 'app/view/partials/dashboard_page_end.php'; ?>

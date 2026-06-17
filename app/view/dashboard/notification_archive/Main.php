@@ -88,26 +88,24 @@ if ($typeFilter !== null && $typeFilter !== '' && isset($types[$typeFilter])) {
 }
 ?>
 
-<div class="container dashboard-view notification-inbox-view notification-archive-view">
-    <section class="notification-inbox-hero">
-        <div class="notification-inbox-hero-main">
-            <h1>Arquivo</h1>
-            <p class="notification-inbox-hero-meta">
-                <span class="notification-archive-filter-pill"><?php echo htmlspecialchars($activeTypeLabel); ?></span>
-                <span><?php echo (int) $total; ?> arquivada(s)</span>
-            </p>
-        </div>
-        <div class="notification-inbox-hero-actions">
-            <a href="<?php echo DIRPAGE; ?>notification/inbox" class="notification-inbox-text-btn">Voltar à inbox</a>
-        </div>
-    </section>
-
-    <?php if (!empty($_GET['error'])): ?>
-        <div class="sub-feedback error"><?php echo htmlspecialchars((string) $_GET['error']); ?></div>
-    <?php endif; ?>
-    <?php if (!empty($_GET['success'])): ?>
-        <div class="sub-feedback success"><?php echo htmlspecialchars((string) $_GET['success']); ?></div>
-    <?php endif; ?>
+<?php
+$dashboardPageClass = 'notification-inbox-view notification-archive-view';
+include DIRREQ . 'app/view/partials/dashboard_page_start.php';
+$inboxHeroTitle = 'Arquivo';
+ob_start();
+?>
+<span class="notification-archive-filter-pill"><?php echo htmlspecialchars($activeTypeLabel, ENT_QUOTES, 'UTF-8'); ?></span>
+<span><?php echo (int) $total; ?> arquivada(s)</span>
+<?php
+$inboxHeroMetaHtml = ob_get_clean();
+ob_start();
+?>
+<a href="<?php echo DIRPAGE; ?>notification/inbox" class="notification-inbox-text-btn">Voltar à inbox</a>
+<?php
+$inboxHeroActionsHtml = ob_get_clean();
+include DIRREQ . 'app/view/partials/dashboard_inbox_hero.php';
+unset($inboxHeroMetaHtml, $inboxHeroActionsHtml);
+?>
 
     <div class="notification-archive-tabs-wrap">
         <nav class="notification-archive-tabs" aria-label="Filtrar arquivo por tipo">
@@ -172,4 +170,4 @@ if ($typeFilter !== null && $typeFilter !== '' && isset($types[$typeFilter])) {
             <?php endif; ?>
         <?php endif; ?>
     </div>
-</div>
+<?php include DIRREQ . 'app/view/partials/dashboard_page_end.php'; ?>

@@ -92,6 +92,12 @@
             <?php endif; ?>
         </p>
         <p><strong>Tipo:</strong> <?php echo htmlspecialchars($requestTypeLabel); ?></p>
+        <?php
+            $chatPropertyStatus = (string) ($request['property_status'] ?? '');
+            if ($chatPropertyStatus === 'eliminado'):
+        ?>
+            <p><strong>Imóvel:</strong> <span class="request-status-badge request-status-cancelado">Eliminado</span> <span class="dashboard-inline-note">Indisponível ao público durante o período de conformidade.</span></p>
+        <?php endif; ?>
         <?php include DIRREQ . 'app/view/partials/request_payment_amount.php'; ?>
         <div class="dispute-status-row">
             <span class="request-status-badge request-status-<?php echo htmlspecialchars($commercialStatus); ?>"><?php echo htmlspecialchars($statusLabel); ?></span>

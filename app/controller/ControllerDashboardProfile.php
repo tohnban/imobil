@@ -22,6 +22,10 @@ class ControllerDashboardProfile
         ClassAuth::requireAuth();
 
         $user = ClassAuth::user();
+        if (ClassAccess::canUseDeletionStatusPage($user)) {
+            header('Location: ' . DIRPAGE . 'dashboard/accountDeletionStatus');
+            exit;
+        }
         if (ClassAccess::canUseAccountStatusPage($user)) {
             header('Location: ' . DIRPAGE . 'dashboard/accountStatus');
             exit;
@@ -51,9 +55,152 @@ class ControllerDashboardProfile
             'usernameCanChange' => !$isAdminProfile && \Src\classes\UsernameHelper::canChangeUsername($user),
             'usernameNextChangeAt' => $isAdminProfile ? null : \Src\classes\UsernameHelper::nextChangeEligibleAt($user),
             'pendingEmailChange' => $isAdminProfile ? null : \Src\classes\EmailVerificationService::getPendingEmailChange($userId),
+            'canRequestAccountDeletion' => !$isAdminProfile && ClassAccess::hasFullPlatformAccess($user),
+            'deletionGraceDays' => User::getAccountDeletionGraceDays(),
+            'accountDeletionSummary' => !$isAdminProfile && ClassAccess::hasFullPlatformAccess($user)
+                ? \App\services\ComplianceDeletionService::deletionSummaryForUser($userId)
+                : [],
         ]);
         $render->setDir('dashboard/profile');
         $render->renderLayout();
+    }
+
+
+    public function accountDeletionStatus()
+    {
+        $sessionUser = ClassAccess::requireAuthenticatedAccount();
+        $user = User::findById((int) ($sessionUser['id'] ?? 0)) ?: $sessionUser;
+
+        if (!ClassAccess::canUseDeletionStatusPage($user)) {
+            if (ClassAccess::hasFullPlatformAccess($user)) {
+                header('Location: ' . DIRPAGE . 'profile');
+                exit;
+            }
+            header('Location: ' . DIRPAGE . 'dashboard/accountStatus');
+            exit;
+        }
+
+        $accountState = \Src\classes\UserAccountState::resolve($user);
+        $scheduledAt = strtotime((string) ($user['deletion_scheduled_at'] ?? ''));
+        $daysRemaining = $scheduledAt > time()
+            ? (int) ceil(($scheduledAt - time()) / 86400)
+            : 0;
+
+        $render = new ClassRender();
+        $render->setTitle('Eliminação de conta');
+        $render->setDescription('Estado do pedido de eliminação da sua conta');
+        $render->setKeywords('conta, eliminação, conformidade');
+        $render->setData([
+            'user' => $user,
+            'accountState' => $accountState,
+            'daysRemaining' => $daysRemaining,
+            'deletionGraceDays' => User::getAccountDeletionGraceDays(),
+            'csrfField' => ClassCsrf::field(),
+        ]);
+        $render->setDir('dashboard/account_deletion_status');
+        $render->renderLayout();
+    }
+
+
+    public function requestAccountDeletion()
+    {
+        ClassAccess::requireAuthenticatedAccount();
+
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            header('Location: ' . DIRPAGE . 'profile');
+            exit;
+        }
+
+        $user = User::findById((int) (ClassAuth::user()['id'] ?? 0)) ?: ClassAuth::user();
+        if (ClassAccess::isAdmin($user) || !ClassAccess::hasFullPlatformAccess($user)) {
+            header('Location: ' . DIRPAGE . 'profile?error=' . rawurlencode('Não é possível solicitar a eliminação desta conta.'));
+            exit;
+        }
+
+        if (User::isPendingDeletion($user)) {
+            header('Location: ' . DIRPAGE . 'dashboard/accountDeletionStatus');
+            exit;
+        }
+
+        $confirmed = filter_var($_POST['confirm_account_deletion'] ?? '', FILTER_VALIDATE_BOOLEAN)
+            || (string) ($_POST['confirm_account_deletion'] ?? '') === '1';
+        if (!$confirmed) {
+            header('Location: ' . DIRPAGE . 'profile?error=' . rawurlencode('Confirme que compreende as consequências da eliminação da conta.'));
+            exit;
+        }
+
+        $currentPassword = (string) ($_POST['current_password'] ?? '');
+        if (!ClassAuth::verifyCurrentPassword($user, $currentPassword)) {
+            header('Location: ' . DIRPAGE . 'profile?error=' . rawurlencode('Indique a palavra-passe actual correcta para confirmar o pedido.'));
+            exit;
+        }
+
+        $userId = (int) ($user['id'] ?? 0);
+        $propertiesMarked = User::requestAccountDeletion($userId);
+        if ($propertiesMarked === null) {
+            header('Location: ' . DIRPAGE . 'profile?error=' . rawurlencode('Não foi possível registar o pedido de eliminação.'));
+            exit;
+        }
+
+        $freshUser = User::findById($userId) ?: $user;
+
+        Log::create([
+            'user_id' => $userId,
+            'action' => 'request_account_deletion',
+            'entity_type' => 'user',
+            'entity_id' => $userId,
+            'details' => json_encode([
+                'grace_days' => User::getAccountDeletionGraceDays(),
+                'properties_marked' => $propertiesMarked,
+            ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
+        ]);
+
+        \App\services\ComplianceDeletionService::afterAccountDeletionRequestedNotify($userId, $freshUser);
+
+        header('Location: ' . DIRPAGE . 'dashboard/accountDeletionStatus?success=' . rawurlencode('Registámos o seu pedido. A conta será eliminada após o período de conformidade, salvo cancelamento ou acção da equipa.'));
+        exit;
+    }
+
+
+    public function cancelAccountDeletion()
+    {
+        ClassAccess::requireAuthenticatedAccount();
+
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            header('Location: ' . DIRPAGE . 'dashboard/accountDeletionStatus');
+            exit;
+        }
+
+        $user = User::findById((int) (ClassAuth::user()['id'] ?? 0)) ?: ClassAuth::user();
+        if (!ClassAccess::canUseDeletionStatusPage($user)) {
+            header('Location: ' . DIRPAGE . 'profile?error=' . rawurlencode('Não há pedido de eliminação activo.'));
+            exit;
+        }
+
+        $currentPassword = (string) ($_POST['current_password'] ?? '');
+        if (!ClassAuth::verifyCurrentPassword($user, $currentPassword)) {
+            header('Location: ' . DIRPAGE . 'dashboard/accountDeletionStatus?error=' . rawurlencode('Indique a palavra-passe actual correcta para cancelar o pedido.'));
+            exit;
+        }
+
+        $userId = (int) ($user['id'] ?? 0);
+        if (!User::cancelAccountDeletion($userId)) {
+            header('Location: ' . DIRPAGE . 'dashboard/accountDeletionStatus?error=' . rawurlencode('Não foi possível cancelar o pedido.'));
+            exit;
+        }
+
+        \App\services\ComplianceDeletionService::afterAccountDeletionCancelled($userId);
+
+        Log::create([
+            'user_id' => $userId,
+            'action' => 'cancel_account_deletion',
+            'entity_type' => 'user',
+            'entity_id' => $userId,
+            'details' => 'Pedido de eliminação cancelado pelo utilizador',
+        ]);
+
+        header('Location: ' . DIRPAGE . 'profile?success=' . rawurlencode('Cancelámos o pedido de eliminação. A sua conta voltou ao estado normal.'));
+        exit;
     }
 
 
@@ -61,6 +208,11 @@ class ControllerDashboardProfile
     {
         $sessionUser = ClassAccess::requireAuthenticatedAccount();
         $user = User::findById((int) ($sessionUser['id'] ?? 0)) ?: $sessionUser;
+
+        if (ClassAccess::canUseDeletionStatusPage($user)) {
+            header('Location: ' . DIRPAGE . 'dashboard/accountDeletionStatus');
+            exit;
+        }
 
         if (ClassAccess::hasFullPlatformAccess($user)) {
             header('Location: ' . DIRPAGE . 'profile');

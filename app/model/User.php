@@ -303,24 +303,26 @@ class User extends ManipularBanco
         string $search = ''
     ): array {
         $db = new self();
-        $allowedFilters = ['all', 'ativo', 'rejeitado', 'pendente', 'suspenso'];
+        $allowedFilters = ['all', 'ativo', 'rejeitado', 'pendente', 'suspenso', 'a_eliminar'];
         if (!in_array($statusFilter, $allowedFilters, true)) {
             $statusFilter = 'all';
         }
 
-        $sql = "SELECT id, name, username, email, phone, role, status, suspended_until, created_at
+        $sql = "SELECT id, name, username, email, phone, role, status, suspended_until, deletion_requested_at, deletion_scheduled_at, created_at
                 FROM {$db->table}
                 WHERE is_admin = 0
                   AND role = 'utilizador'";
         $params = [];
 
-        if ($statusFilter === 'ativo') {
-            $sql .= ' AND status = ? AND (suspended_until IS NULL OR suspended_until <= NOW())';
+        if ($statusFilter === 'a_eliminar') {
+            $sql .= ' AND deletion_requested_at IS NOT NULL';
+        } elseif ($statusFilter === 'ativo') {
+            $sql .= ' AND status = ? AND (suspended_until IS NULL OR suspended_until <= NOW()) AND deletion_requested_at IS NULL';
             $params[] = 'ativo';
         } elseif ($statusFilter === 'suspenso') {
-            $sql .= " AND status = 'ativo' AND suspended_until > NOW()";
+            $sql .= " AND status = 'ativo' AND suspended_until > NOW() AND deletion_requested_at IS NULL";
         } elseif ($statusFilter !== 'all') {
-            $sql .= ' AND status = ?';
+            $sql .= ' AND status = ? AND deletion_requested_at IS NULL';
             $params[] = $statusFilter;
         }
 
@@ -339,7 +341,7 @@ class User extends ManipularBanco
     public static function countManageableUsers(string $statusFilter = 'all', string $search = ''): int
     {
         $db = new self();
-        $allowedFilters = ['all', 'ativo', 'rejeitado', 'pendente', 'suspenso'];
+        $allowedFilters = ['all', 'ativo', 'rejeitado', 'pendente', 'suspenso', 'a_eliminar'];
         if (!in_array($statusFilter, $allowedFilters, true)) {
             $statusFilter = 'all';
         }
@@ -350,13 +352,15 @@ class User extends ManipularBanco
                   AND role = 'utilizador'";
         $params = [];
 
-        if ($statusFilter === 'ativo') {
-            $sql .= ' AND status = ? AND (suspended_until IS NULL OR suspended_until <= NOW())';
+        if ($statusFilter === 'a_eliminar') {
+            $sql .= ' AND deletion_requested_at IS NOT NULL';
+        } elseif ($statusFilter === 'ativo') {
+            $sql .= ' AND status = ? AND (suspended_until IS NULL OR suspended_until <= NOW()) AND deletion_requested_at IS NULL';
             $params[] = 'ativo';
         } elseif ($statusFilter === 'suspenso') {
-            $sql .= " AND status = 'ativo' AND suspended_until > NOW()";
+            $sql .= " AND status = 'ativo' AND suspended_until > NOW() AND deletion_requested_at IS NULL";
         } elseif ($statusFilter !== 'all') {
-            $sql .= ' AND status = ?';
+            $sql .= ' AND status = ? AND deletion_requested_at IS NULL';
             $params[] = $statusFilter;
         }
 
@@ -1074,6 +1078,7 @@ class User extends ManipularBanco
             SUM(CASE WHEN status = 'ativo' THEN 1 ELSE 0 END) AS active,
             SUM(CASE WHEN status = 'pendente' THEN 1 ELSE 0 END) AS pending,
             SUM(CASE WHEN status = 'rejeitado' THEN 1 ELSE 0 END) AS rejected,
+            SUM(CASE WHEN deletion_requested_at IS NOT NULL THEN 1 ELSE 0 END) AS pending_deletion,
             SUM(CASE WHEN is_affiliate = 1 THEN 1 ELSE 0 END) AS affiliates,
             SUM(CASE WHEN created_at >= DATE_FORMAT(NOW(), '%Y-%m-01') THEN 1 ELSE 0 END) AS new_this_month
         FROM {$db->table} WHERE is_admin = 0";
@@ -1177,5 +1182,230 @@ class User extends ManipularBanco
         $sql = "UPDATE {$db->table} SET is_affiliate = 1 WHERE id = ? AND is_admin = 0 AND status = 'ativo' AND (is_affiliate = 0 OR is_affiliate IS NULL)";
         $stmt = $db->prepare($sql);
         return $stmt->execute([$id]) && $stmt->rowCount() > 0;
+    }
+
+    public static function isPendingDeletion(?array $user): bool
+    {
+        if (!is_array($user)) {
+            return false;
+        }
+
+        return !empty($user['deletion_requested_at']);
+    }
+
+    public static function getAccountDeletionGraceDays(): int
+    {
+        return max(1, (int) \Src\classes\ClassSettings::int('account_deletion_grace_days', 60));
+    }
+
+    public static function sqlExcludePendingDeletionOwners(string $userAlias = 'u'): string
+    {
+        $alias = self::assertIdentifier($userAlias);
+
+        return "({$alias}.deletion_requested_at IS NULL)";
+    }
+
+    /**
+     * @return int|null Número de imóveis marcados para eliminação, ou null se o pedido falhou.
+     */
+    public static function requestAccountDeletion(int $userId): ?int
+    {
+        if ($userId <= 0) {
+            return null;
+        }
+
+        $days = self::getAccountDeletionGraceDays();
+        $scheduledAt = date('Y-m-d H:i:s', strtotime('+' . $days . ' days'));
+
+        $db = new self();
+        $sql = "UPDATE {$db->table}
+                SET deletion_requested_at = NOW(),
+                    deletion_scheduled_at = ?,
+                    deletion_reminder_sent_at = NULL
+                WHERE id = ?
+                  AND is_admin = 0
+                  AND role = 'utilizador'
+                  AND deletion_requested_at IS NULL";
+        $stmt = $db->prepare($sql);
+
+        if (!$stmt->execute([$scheduledAt, $userId])) {
+            return null;
+        }
+
+        if ($stmt->rowCount() <= 0) {
+            return null;
+        }
+
+        return \App\services\ComplianceDeletionService::afterAccountDeletionRequested($userId);
+    }
+
+    public static function cancelAccountDeletion(int $userId): bool
+    {
+        if ($userId <= 0) {
+            return false;
+        }
+
+        $db = new self();
+        $sql = "UPDATE {$db->table}
+                SET deletion_requested_at = NULL,
+                    deletion_scheduled_at = NULL,
+                    deletion_reminder_sent_at = NULL
+                WHERE id = ?
+                  AND is_admin = 0
+                  AND role = 'utilizador'
+                  AND deletion_requested_at IS NOT NULL";
+        $stmt = $db->prepare($sql);
+
+        if (!$stmt->execute([$userId])) {
+            return false;
+        }
+
+        return $stmt->rowCount() > 0;
+    }
+
+    /**
+     * Elimina/anonymiza a conta após o período de conformidade ou por acção admin.
+     */
+    public static function purgeAccountPermanently(int $userId): bool
+    {
+        if ($userId <= 0) {
+            return false;
+        }
+
+        $user = self::findById($userId);
+        if (!$user || !empty($user['is_admin']) || (string) ($user['role'] ?? '') !== 'utilizador') {
+            return false;
+        }
+
+        \App\services\ComplianceDeletionService::purgeUserResidualData($user);
+
+        $db = new self();
+
+        $token = 'removed_' . $userId . '_' . time();
+        $username = 'removed_' . $userId;
+        $documentNumber = 'REM' . str_pad((string) $userId, 8, '0', STR_PAD_LEFT);
+        $password = password_hash(bin2hex(random_bytes(16)), PASSWORD_DEFAULT);
+
+        $sql = "UPDATE {$db->table}
+                SET email = ?,
+                    phone = NULL,
+                    name = 'Conta removida',
+                    username = ?,
+                    document_number = ?,
+                    password = ?,
+                    profile_photo = NULL,
+                    document_file = NULL,
+                    is_affiliate = 0,
+                    affiliate_code = NULL,
+                    status = 'rejeitado',
+                    suspended_until = '2099-12-31 23:59:59',
+                    deletion_requested_at = NULL,
+                    deletion_scheduled_at = NULL,
+                    deletion_reminder_sent_at = NULL
+                WHERE id = ?
+                  AND is_admin = 0
+                  AND role = 'utilizador'";
+        $stmt = $db->prepare($sql);
+        if (!$stmt->execute([$token . '@removed.local', $username, $documentNumber, $password, $userId])) {
+            return false;
+        }
+
+        if ($stmt->rowCount() <= 0) {
+            return false;
+        }
+
+        \App\services\HeaderShellService::invalidateForUser($userId);
+
+        return true;
+    }
+
+    /**
+     * @return array<int, array<string, mixed>>
+     */
+    public static function getDueAccountDeletions(int $limit = 50): array
+    {
+        $db = new self();
+        $sql = "SELECT id, name, email, deletion_requested_at, deletion_scheduled_at
+                FROM {$db->table}
+                WHERE is_admin = 0
+                  AND role = 'utilizador'
+                  AND deletion_requested_at IS NOT NULL
+                  AND deletion_scheduled_at IS NOT NULL
+                  AND deletion_scheduled_at <= NOW()
+                ORDER BY deletion_scheduled_at ASC, id ASC
+                LIMIT " . max(1, (int) $limit);
+        $stmt = $db->prepare($sql);
+        $stmt->execute();
+
+        return $stmt->fetchAll(\PDO::FETCH_ASSOC) ?: [];
+    }
+
+    public static function processDueAccountDeletions(int $limit = 50): int
+    {
+        $processed = 0;
+        foreach (self::getDueAccountDeletions($limit) as $row) {
+            $userId = (int) ($row['id'] ?? 0);
+            if ($userId > 0 && self::purgeAccountPermanently($userId)) {
+                $processed++;
+            }
+        }
+
+        return $processed;
+    }
+
+    public static function countOverdueDeletions(): int
+    {
+        $db = new self();
+        $sql = "SELECT COUNT(*)
+                FROM {$db->table}
+                WHERE is_admin = 0
+                  AND role = 'utilizador'
+                  AND deletion_requested_at IS NOT NULL
+                  AND deletion_scheduled_at IS NOT NULL
+                  AND deletion_scheduled_at < DATE_SUB(NOW(), INTERVAL 1 DAY)";
+        $stmt = $db->prepare($sql);
+        $stmt->execute();
+
+        return (int) $stmt->fetchColumn();
+    }
+
+    /**
+     * @return array<int, array<string, mixed>>
+     */
+    public static function getDeletionReminderCandidates(int $daysBefore, int $limit = 50): array
+    {
+        $db = new self();
+        $sql = "SELECT id, name, email, deletion_scheduled_at
+                FROM {$db->table}
+                WHERE is_admin = 0
+                  AND role = 'utilizador'
+                  AND deletion_requested_at IS NOT NULL
+                  AND deletion_scheduled_at IS NOT NULL
+                  AND deletion_reminder_sent_at IS NULL
+                  AND deletion_scheduled_at > NOW()
+                  AND deletion_scheduled_at <= DATE_ADD(NOW(), INTERVAL ? DAY)
+                ORDER BY deletion_scheduled_at ASC, id ASC
+                LIMIT " . max(1, (int) $limit);
+        $stmt = $db->prepare($sql);
+        $stmt->execute([max(1, $daysBefore)]);
+
+        return $stmt->fetchAll(\PDO::FETCH_ASSOC) ?: [];
+    }
+
+    public static function markDeletionReminderSent(int $userId): bool
+    {
+        if ($userId <= 0) {
+            return false;
+        }
+
+        $db = new self();
+        $sql = "UPDATE {$db->table}
+                SET deletion_reminder_sent_at = NOW()
+                WHERE id = ?
+                  AND deletion_reminder_sent_at IS NULL";
+        $stmt = $db->prepare($sql);
+        $stmt->execute([$userId]);
+
+        return $stmt->rowCount() > 0;
     }
 }

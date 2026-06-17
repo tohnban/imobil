@@ -78,7 +78,8 @@ class Property extends ManipularBanco
                 LEFT JOIN users u ON p.affiliate_id = u.id
                 LEFT JOIN countries c ON p.country_id = c.id
             LEFT JOIN regions r ON p.region_id = r.id
-                WHERE p.status = 'disponivel'";
+                WHERE p.status = 'disponivel'
+                  AND " . User::sqlExcludePendingDeletionOwners('u');
         $params = $behaviorScoreParams;
 
         if (!empty($filters['type'])) {
@@ -264,6 +265,7 @@ class Property extends ManipularBanco
                 FROM {$db->table} p
                 LEFT JOIN users u ON p.affiliate_id = u.id
                 WHERE p.featured = 1 AND p.status = 'disponivel'
+                  AND " . User::sqlExcludePendingDeletionOwners('u') . "
                 ORDER BY owner_plan_weight DESC, (p.visibility = 'premium') DESC{$behaviorOrder}, p.created_at DESC";
             if ($limit !== null) {
                 $sql .= ' LIMIT ' . max(1, (int) $limit);
@@ -283,7 +285,9 @@ class Property extends ManipularBanco
     {
         $db = new self();
         $sql = "SELECT COUNT(*) AS total FROM {$db->table} p
-                WHERE p.featured = 1 AND p.status = 'disponivel'";
+                LEFT JOIN users u ON p.affiliate_id = u.id
+                WHERE p.featured = 1 AND p.status = 'disponivel'
+                  AND " . User::sqlExcludePendingDeletionOwners('u');
         $stmt = $db->prepare($sql);
         $stmt->execute();
         $row = $stmt->fetch(\PDO::FETCH_ASSOC);
@@ -431,11 +435,33 @@ class Property extends ManipularBanco
 
     public static function getByAffiliate($affiliateId)
     {
+        return self::getPortfolioByAffiliate((int) $affiliateId);
+    }
+
+    public static function getPortfolioByAffiliate(int $affiliateId): array
+    {
+        $db = new self();
+        $sql = "SELECT * FROM {$db->table}
+                WHERE affiliate_id = ?
+                  AND deletion_purged_at IS NULL
+                ORDER BY created_at DESC";
+        $stmt = $db->prepare($sql);
+        $stmt->execute([$affiliateId]);
+
+        return $stmt->fetchAll(\PDO::FETCH_ASSOC) ?: [];
+    }
+
+    /**
+     * @return array<int, array<string, mixed>>
+     */
+    public static function getAllByAffiliateIncludingPurged(int $affiliateId): array
+    {
         $db = new self();
         $sql = "SELECT * FROM {$db->table} WHERE affiliate_id = ? ORDER BY created_at DESC";
         $stmt = $db->prepare($sql);
         $stmt->execute([$affiliateId]);
-        return $stmt->fetchAll(\PDO::FETCH_ASSOC);
+
+        return $stmt->fetchAll(\PDO::FETCH_ASSOC) ?: [];
     }
 
     public static function getActiveAffiliationsForUser(int $userId): array
@@ -449,6 +475,8 @@ class Property extends ManipularBanco
                 JOIN users u_owner      ON p.affiliate_id = u_owner.id
                 LEFT JOIN requests r    ON r.affiliate_id = ? AND r.property_id = p.id
                 WHERE pa.user_id = ? AND pa.status = 'ativo'
+                  AND p.status NOT IN ('eliminado')
+                  AND p.deletion_purged_at IS NULL
                 GROUP BY pa.id, pa.property_id, p.title, p.price, p.location, p.status,
                                                  u_owner.id, u_owner.username, u_owner.name, u_owner.phone
                 ORDER BY p.created_at DESC";
@@ -649,6 +677,7 @@ class Property extends ManipularBanco
                 SUM(CASE WHEN p.status = 'alugado'    THEN 1 ELSE 0 END)           AS rented,
                 SUM(CASE WHEN p.status = 'pendente'   THEN 1 ELSE 0 END)           AS pending,
                 SUM(CASE WHEN p.status = 'rejeitado'  THEN 1 ELSE 0 END)           AS rejected,
+                SUM(CASE WHEN p.status = 'eliminado' AND p.deletion_purged_at IS NULL THEN 1 ELSE 0 END) AS pending_deletion,
                 SUM(CASE WHEN p.featured = 1 AND p.status = 'disponivel' THEN 1 ELSE 0 END) AS featured,
                 SUM(CASE WHEN p.purpose = 'venda'     THEN 1 ELSE 0 END)           AS for_sale,
                 SUM(CASE WHEN p.purpose LIKE 'aluguer%' THEN 1 ELSE 0 END)         AS for_rent,
@@ -703,10 +732,12 @@ class Property extends ManipularBanco
         $sql = "SELECT
             COUNT(*) AS total,
             SUM(CASE WHEN status = 'pendente' THEN 1 ELSE 0 END) AS pendente,
+            SUM(CASE WHEN status = 'em_analise' THEN 1 ELSE 0 END) AS em_analise,
             SUM(CASE WHEN status = 'disponivel' THEN 1 ELSE 0 END) AS disponivel,
             SUM(CASE WHEN status = 'vendido' THEN 1 ELSE 0 END) AS vendido,
             SUM(CASE WHEN status = 'alugado' THEN 1 ELSE 0 END) AS alugado,
             SUM(CASE WHEN status = 'rejeitado' THEN 1 ELSE 0 END) AS rejeitado,
+            SUM(CASE WHEN status = 'eliminado' AND deletion_purged_at IS NULL THEN 1 ELSE 0 END) AS eliminado,
             SUM(CASE WHEN created_at >= DATE_FORMAT(NOW(), '%Y-%m-01') THEN 1 ELSE 0 END) AS new_this_month,
             ROUND(
                 SUM(CASE WHEN status = 'disponivel' THEN 1 ELSE 0 END) /
@@ -754,6 +785,60 @@ class Property extends ManipularBanco
     }
 
     /**
+     * Estado final após fecho comercial (venda ou aluguer).
+     */
+    public static function resolveCommercialClosureStatus(array $property): ?string
+    {
+        $purpose = (string) ($property['purpose'] ?? '');
+        if ($purpose === 'venda') {
+            return 'vendido';
+        }
+        if (str_starts_with($purpose, 'aluguer')) {
+            return 'alugado';
+        }
+
+        return null;
+    }
+
+    /**
+     * Marca o imóvel como vendido/alugado após fecho na plataforma.
+     */
+    public static function setCommercialClosureStatus(int $id, string $status): bool
+    {
+        if (!in_array($status, ['vendido', 'alugado'], true)) {
+            return false;
+        }
+
+        $property = self::find($id);
+        if (!$property || (string) ($property['status'] ?? '') === 'eliminado') {
+            return false;
+        }
+
+        if ((string) ($property['status'] ?? '') === $status) {
+            return true;
+        }
+
+        $purpose = (string) ($property['purpose'] ?? '');
+        if ($status === 'vendido' && $purpose !== 'venda') {
+            return false;
+        }
+        if ($status === 'alugado' && !str_starts_with($purpose, 'aluguer')) {
+            return false;
+        }
+
+        $db = new self();
+        $sql = "UPDATE {$db->table} SET status = ? WHERE id = ? AND status NOT IN ('eliminado')";
+        $stmt = $db->prepare($sql);
+        $stmt->execute([$status, $id]);
+        $ok = $stmt->rowCount() > 0;
+        if ($ok) {
+            self::bumpFilterCacheVersion();
+        }
+
+        return $ok;
+    }
+
+    /**
      * Set only the status of a property.
      */
     public static function setStatus(int $id, string $status): bool
@@ -787,5 +872,322 @@ class Property extends ManipularBanco
             self::bumpFilterCacheVersion();
         }
         return $ok;
+    }
+
+    public static function statusLabel(string $status): string
+    {
+        $map = [
+            'disponivel' => 'Disponível',
+            'vendido' => 'Vendido',
+            'alugado' => 'Alugado',
+            'pendente' => 'Pendente',
+            'em_analise' => 'Em análise',
+            'rejeitado' => 'Rejeitado',
+            'eliminado' => 'Eliminado',
+        ];
+
+        return $map[$status] ?? ucfirst(str_replace('_', ' ', $status));
+    }
+
+    public static function isPendingDeletion(?array $property): bool
+    {
+        if (!is_array($property)) {
+            return false;
+        }
+
+        return (string) ($property['status'] ?? '') === 'eliminado'
+            && empty($property['deletion_purged_at']);
+    }
+
+    public static function isPubliclyListed(?array $property): bool
+    {
+        if (!is_array($property)) {
+            return false;
+        }
+
+        return (string) ($property['status'] ?? '') === 'disponivel';
+    }
+
+    public static function getPropertyDeletionGraceDays(): int
+    {
+        return max(1, (int) \Src\classes\ClassSettings::int('property_deletion_grace_days', 30));
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    public static function deletableStatuses(): array
+    {
+        return ['disponivel', 'pendente', 'em_analise', 'rejeitado'];
+    }
+
+    public static function canRequestDeletion(?array $property): bool
+    {
+        if (!is_array($property) || self::isPendingDeletion($property)) {
+            return false;
+        }
+
+        return in_array((string) ($property['status'] ?? ''), self::deletableStatuses(), true);
+    }
+
+    public static function requestDeletion(int $propertyId, int $ownerId, ?string $scheduledAt = null): bool
+    {
+        if ($propertyId <= 0 || $ownerId <= 0) {
+            return false;
+        }
+
+        $property = self::find($propertyId);
+        if (!$property
+            || (int) ($property['affiliate_id'] ?? 0) !== $ownerId
+            || !self::canRequestDeletion($property)) {
+            return false;
+        }
+
+        if ($scheduledAt === null || trim($scheduledAt) === '' || strtotime($scheduledAt) === false) {
+            $days = self::getPropertyDeletionGraceDays();
+            $scheduledAt = date('Y-m-d H:i:s', strtotime('+' . $days . ' days'));
+        } else {
+            $scheduledAt = date('Y-m-d H:i:s', strtotime($scheduledAt));
+        }
+        $previousStatus = (string) ($property['status'] ?? 'disponivel');
+
+        $db = new self();
+        $sql = "UPDATE {$db->table}
+                SET status = 'eliminado',
+                    featured = 0,
+                    deletion_previous_status = ?,
+                    deletion_requested_at = NOW(),
+                    deletion_scheduled_at = ?,
+                    deletion_reminder_sent_at = NULL,
+                    deletion_purged_at = NULL
+                WHERE id = ?
+                  AND affiliate_id = ?
+                  AND status = ?
+                  AND deletion_purged_at IS NULL";
+        $stmt = $db->prepare($sql);
+        if (!$stmt->execute([$previousStatus, $scheduledAt, $propertyId, $ownerId, $previousStatus])) {
+            return false;
+        }
+
+        if ($stmt->rowCount() <= 0) {
+            return false;
+        }
+
+        self::bumpFilterCacheVersion();
+
+        return true;
+    }
+
+    public static function cancelDeletion(int $propertyId, int $ownerId): bool
+    {
+        if ($propertyId <= 0 || $ownerId <= 0) {
+            return false;
+        }
+
+        $property = self::find($propertyId);
+        if (!$property
+            || (int) ($property['affiliate_id'] ?? 0) !== $ownerId
+            || !self::isPendingDeletion($property)) {
+            return false;
+        }
+
+        $restoreStatus = (string) ($property['deletion_previous_status'] ?? 'disponivel');
+        $allowedRestore = array_merge(self::deletableStatuses(), ['eliminado']);
+        if (!in_array($restoreStatus, $allowedRestore, true) || $restoreStatus === 'eliminado') {
+            $restoreStatus = 'disponivel';
+        }
+
+        $db = new self();
+        $sql = "UPDATE {$db->table}
+                SET status = ?,
+                    deletion_previous_status = NULL,
+                    deletion_requested_at = NULL,
+                    deletion_scheduled_at = NULL,
+                    deletion_reminder_sent_at = NULL
+                WHERE id = ?
+                  AND affiliate_id = ?
+                  AND status = 'eliminado'
+                  AND deletion_purged_at IS NULL";
+        $stmt = $db->prepare($sql);
+        if (!$stmt->execute([$restoreStatus, $propertyId, $ownerId])) {
+            return false;
+        }
+
+        if ($stmt->rowCount() <= 0) {
+            return false;
+        }
+
+        self::bumpFilterCacheVersion();
+
+        return true;
+    }
+
+    public static function purgePermanently(int $propertyId, bool $force = false): bool
+    {
+        if ($propertyId <= 0) {
+            return false;
+        }
+
+        $property = self::find($propertyId);
+        if (!$property) {
+            return false;
+        }
+
+        if (!empty($property['deletion_purged_at'])) {
+            return false;
+        }
+
+        if (!$force) {
+            if (!self::isPendingDeletion($property)) {
+                return false;
+            }
+
+            $scheduledAt = strtotime((string) ($property['deletion_scheduled_at'] ?? ''));
+            if ($scheduledAt > time()) {
+                return false;
+            }
+        } elseif ((string) ($property['status'] ?? '') !== 'eliminado') {
+            $ownerId = (int) ($property['affiliate_id'] ?? 0);
+            if ($ownerId > 0 && self::canRequestDeletion($property)) {
+                self::requestDeletion($propertyId, $ownerId);
+                $property = self::find($propertyId) ?: $property;
+            }
+        }
+
+        \App\services\ComplianceDeletionService::purgePropertyResidualData($property);
+
+        $db = new self();
+        $sql = "UPDATE {$db->table}
+                SET title = 'Imóvel removido',
+                    description = NULL,
+                    images = '[]',
+                    video_url = NULL,
+                    featured = 0,
+                    status = 'eliminado',
+                    deletion_purged_at = NOW()
+                WHERE id = ?
+                  AND deletion_purged_at IS NULL";
+        if (!$force) {
+            $sql .= " AND status = 'eliminado'
+                      AND deletion_scheduled_at IS NOT NULL
+                      AND deletion_scheduled_at <= NOW()";
+        }
+
+        $stmt = $db->prepare($sql);
+        if (!$stmt->execute([$propertyId])) {
+            return false;
+        }
+
+        if ($stmt->rowCount() <= 0) {
+            return false;
+        }
+
+        self::bumpFilterCacheVersion();
+
+        return true;
+    }
+
+    /**
+     * @return array<int, array<string, mixed>>
+     */
+    public static function getDueDeletions(int $limit = 50): array
+    {
+        $db = new self();
+        $sql = "SELECT id, title, affiliate_id, deletion_requested_at, deletion_scheduled_at
+                FROM {$db->table}
+                WHERE status = 'eliminado'
+                  AND deletion_purged_at IS NULL
+                  AND deletion_scheduled_at IS NOT NULL
+                  AND deletion_scheduled_at <= NOW()
+                ORDER BY deletion_scheduled_at ASC, id ASC
+                LIMIT " . max(1, (int) $limit);
+        $stmt = $db->prepare($sql);
+        $stmt->execute();
+
+        return $stmt->fetchAll(\PDO::FETCH_ASSOC) ?: [];
+    }
+
+    public static function processDueDeletions(int $limit = 50): int
+    {
+        $processed = 0;
+        foreach (self::getDueDeletions($limit) as $row) {
+            $propertyId = (int) ($row['id'] ?? 0);
+            if ($propertyId > 0 && self::purgePermanently($propertyId)) {
+                $processed++;
+            }
+        }
+
+        return $processed;
+    }
+
+    public static function cancelAllDeletionsForOwner(int $ownerId): int
+    {
+        if ($ownerId <= 0) {
+            return 0;
+        }
+
+        $cancelled = 0;
+        foreach (self::getPortfolioByAffiliate($ownerId) as $property) {
+            $propertyId = (int) ($property['id'] ?? 0);
+            if ($propertyId > 0 && self::cancelDeletion($propertyId, $ownerId)) {
+                $cancelled++;
+            }
+        }
+
+        return $cancelled;
+    }
+
+    public static function countOverdueDeletions(): int
+    {
+        $db = new self();
+        $sql = "SELECT COUNT(*)
+                FROM {$db->table}
+                WHERE status = 'eliminado'
+                  AND deletion_purged_at IS NULL
+                  AND deletion_scheduled_at IS NOT NULL
+                  AND deletion_scheduled_at < DATE_SUB(NOW(), INTERVAL 1 DAY)";
+        $stmt = $db->prepare($sql);
+        $stmt->execute();
+
+        return (int) $stmt->fetchColumn();
+    }
+
+    /**
+     * @return array<int, array<string, mixed>>
+     */
+    public static function getDeletionReminderCandidates(int $daysBefore, int $limit = 50): array
+    {
+        $db = new self();
+        $sql = "SELECT id, title, affiliate_id, deletion_scheduled_at
+                FROM {$db->table}
+                WHERE status = 'eliminado'
+                  AND deletion_purged_at IS NULL
+                  AND deletion_scheduled_at IS NOT NULL
+                  AND deletion_reminder_sent_at IS NULL
+                  AND deletion_scheduled_at > NOW()
+                  AND deletion_scheduled_at <= DATE_ADD(NOW(), INTERVAL ? DAY)
+                ORDER BY deletion_scheduled_at ASC, id ASC
+                LIMIT " . max(1, (int) $limit);
+        $stmt = $db->prepare($sql);
+        $stmt->execute([max(1, $daysBefore)]);
+
+        return $stmt->fetchAll(\PDO::FETCH_ASSOC) ?: [];
+    }
+
+    public static function markDeletionReminderSent(int $propertyId): bool
+    {
+        if ($propertyId <= 0) {
+            return false;
+        }
+
+        $db = new self();
+        $sql = "UPDATE {$db->table}
+                SET deletion_reminder_sent_at = NOW()
+                WHERE id = ?
+                  AND deletion_reminder_sent_at IS NULL";
+        $stmt = $db->prepare($sql);
+        $stmt->execute([$propertyId]);
+
+        return $stmt->rowCount() > 0;
     }
 }

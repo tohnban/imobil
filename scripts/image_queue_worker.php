@@ -43,7 +43,7 @@ function processImageJob(array $payload): bool {
     $source = isset($payload['source']) ? (string) $payload['source'] : '';
     if ($source === '') return false;
 
-    $srcPath = $root . ltrim($source, "\\/\");
+    $srcPath = $root . ltrim($source, '/\\');
     if (!file_exists($srcPath)) return false;
 
     $sizes = $payload['sizes'] ?? [[ 'w' => 400, 'h' => 300 ]];

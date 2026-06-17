@@ -49,7 +49,7 @@ class ControllerDashboardModeration
         $pendingTrust       = array_slice($allPendingTrust, 0, 5);
 
         $accessStatusFilter = (string) ($_GET['access_status'] ?? 'all');
-        $allowedAccessStatusFilters = ['all', 'ativo', 'rejeitado', 'pendente', 'suspenso'];
+        $allowedAccessStatusFilters = ['all', 'ativo', 'rejeitado', 'pendente', 'suspenso', 'a_eliminar'];
         if (!in_array($accessStatusFilter, $allowedAccessStatusFilters, true)) {
             $accessStatusFilter = 'all';
         }
@@ -133,6 +133,101 @@ class ControllerDashboardModeration
 
         // Audit: record that an admin viewed the moderation users list (sensitive)
         \App\model\Log::sensitiveRead((int) ($user['id'] ?? null), 'user_list', null, 'Viewed moderation users list, tab=' . $activeTab);
+    }
+
+    public function purgeUserAccountNow($id)
+    {
+        $admin = ClassAccess::requireSuperAdmin('dashboard/moderateUsers?tab=acessos', 'Acesso disponível apenas para Admin Total');
+
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            header('Location: ' . DIRPAGE . 'dashboard/moderateUsers?tab=acessos&error=Token inválido');
+            exit;
+        }
+
+        $targetId = (int) $id;
+        if ($targetId <= 0) {
+            header('Location: ' . DIRPAGE . 'dashboard/moderateUsers?tab=acessos&error=Utilizador inválido');
+            exit;
+        }
+
+        $targetUser = User::findById($targetId);
+        if (!$targetUser || !empty($targetUser['is_admin']) || (string) ($targetUser['role'] ?? 'utilizador') !== 'utilizador') {
+            header('Location: ' . DIRPAGE . 'dashboard/moderateUsers?tab=acessos&error=Ação não permitida para este perfil');
+            exit;
+        }
+
+        if (!User::isPendingDeletion($targetUser)) {
+            header('Location: ' . DIRPAGE . 'dashboard/moderateUsers?tab=acessos&error=Este utilizador não tem pedido de eliminação activo');
+            exit;
+        }
+
+        if (!User::purgeAccountPermanently($targetId)) {
+            header('Location: ' . DIRPAGE . 'dashboard/moderateUsers?tab=acessos&error=Não foi possível eliminar a conta');
+            exit;
+        }
+
+        Log::create([
+            'user_id' => (int) ($admin['id'] ?? 0),
+            'action' => 'purge_user_account',
+            'entity_type' => 'user',
+            'entity_id' => $targetId,
+            'details' => 'Conta eliminada por acção administrativa antes do prazo',
+        ]);
+
+        header('Location: ' . DIRPAGE . 'dashboard/moderateUsers?tab=acessos&success=' . rawurlencode('Conta eliminada com sucesso.'));
+        exit;
+    }
+
+    public function cancelUserDeletion($id)
+    {
+        $admin = ClassAccess::requireSuperAdmin('dashboard/moderateUsers?tab=acessos', 'Acesso disponível apenas para Admin Total');
+
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            header('Location: ' . DIRPAGE . 'dashboard/moderateUsers?tab=acessos&error=Token inválido');
+            exit;
+        }
+
+        $targetId = (int) $id;
+        if ($targetId <= 0) {
+            header('Location: ' . DIRPAGE . 'dashboard/moderateUsers?tab=acessos&error=Utilizador inválido');
+            exit;
+        }
+
+        $targetUser = User::findById($targetId);
+        if (!$targetUser || !empty($targetUser['is_admin']) || (string) ($targetUser['role'] ?? 'utilizador') !== 'utilizador') {
+            header('Location: ' . DIRPAGE . 'dashboard/moderateUsers?tab=acessos&error=Ação não permitida para este perfil');
+            exit;
+        }
+
+        if (!User::cancelAccountDeletion($targetId)) {
+            header('Location: ' . DIRPAGE . 'dashboard/moderateUsers?tab=acessos&error=Não foi possível cancelar o pedido de eliminação');
+            exit;
+        }
+
+        $propertiesRestored = \App\services\ComplianceDeletionService::afterAccountDeletionCancelled($targetId);
+
+        Log::create([
+            'user_id' => (int) ($admin['id'] ?? 0),
+            'action' => 'cancel_user_deletion',
+            'entity_type' => 'user',
+            'entity_id' => $targetId,
+            'details' => json_encode([
+                'message' => 'Pedido de eliminação cancelado pela equipa',
+                'properties_restored' => $propertiesRestored,
+            ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
+        ]);
+
+        Notification::notifyUser(
+            $targetId,
+            'account_deletion_cancelled',
+            'Pedido de eliminação cancelado',
+            'A equipa cancelou o pedido de eliminação da sua conta. O acesso completo foi restaurado.',
+            ['user_id' => $targetId],
+            (int) ($admin['id'] ?? 0)
+        );
+
+        header('Location: ' . DIRPAGE . 'dashboard/moderateUsers?tab=acessos&success=' . rawurlencode('Pedido de eliminação cancelado.'));
+        exit;
     }
 
     public function blockUserAccess($id)

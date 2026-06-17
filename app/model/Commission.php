@@ -255,11 +255,22 @@ class Commission extends ManipularBanco
 
     public static function existsByRequest($requestId)
     {
+        return self::findIdByRequest((int) $requestId) > 0;
+    }
+
+    public static function findIdByRequest(int $requestId): int
+    {
+        if ($requestId <= 0) {
+            return 0;
+        }
+
         $db = new self();
         $sql = "SELECT id FROM {$db->table} WHERE request_id = ? LIMIT 1";
         $stmt = $db->prepare($sql);
-        $stmt->execute([(int) $requestId]);
-        return (bool) $stmt->fetch(\PDO::FETCH_ASSOC);
+        $stmt->execute([$requestId]);
+        $id = $stmt->fetchColumn();
+
+        return is_numeric($id) ? (int) $id : 0;
     }
 
     public static function getByAffiliate($affiliateId, int $limit = 0, int $offset = 0)
@@ -745,5 +756,50 @@ class Commission extends ManipularBanco
             }
             throw $e;
         }
+    }
+
+    /**
+     * Corrige imóveis com comissão pendente mas estado ainda não fechado comercialmente.
+     */
+    public static function repairPropertyStatusForPendingCommissions(): int
+    {
+        $db = new self();
+        $sql = "SELECT c.id AS commission_id, c.property_id, c.request_id, p.status, p.purpose
+                FROM {$db->table} c
+                INNER JOIN properties p ON p.id = c.property_id
+                INNER JOIN requests r ON r.id = c.request_id
+                WHERE c.status = 'pendente'
+                  AND p.status NOT IN ('vendido', 'alugado', 'eliminado')
+                  AND r.status = 'fechado_ganho'
+                  AND r.closing_confirmation_status = ?
+                ORDER BY c.id ASC
+                LIMIT 200";
+        $stmt = $db->prepare($sql);
+        $stmt->execute([Request::CLOSING_CONFIRMATION_CONFIRMED]);
+        $rows = $stmt->fetchAll(\PDO::FETCH_ASSOC) ?: [];
+
+        $repaired = 0;
+        foreach ($rows as $row) {
+            $propertyId = (int) ($row['property_id'] ?? 0);
+            if ($propertyId <= 0) {
+                continue;
+            }
+
+            $property = Property::find($propertyId);
+            if (!$property) {
+                continue;
+            }
+
+            $finalStatus = Property::resolveCommercialClosureStatus($property);
+            if ($finalStatus === null) {
+                continue;
+            }
+
+            if (Property::setCommercialClosureStatus($propertyId, $finalStatus)) {
+                $repaired++;
+            }
+        }
+
+        return $repaired;
     }
 }

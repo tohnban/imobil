@@ -1,8 +1,11 @@
 <?php use Src\classes\FeedGrouping; ?>
-<div class="container dashboard-view notification-inbox-view requests-inbox-view requests-dashboard-view"
-    id="requestsDashboardRoot"
-    data-chat-summaries-feed-url="<?php echo DIRPAGE; ?>dashboard/requestChatSummariesFeed?view=<?php echo urlencode((string) ($requestView ?? '')); ?>">
-    <?php
+<?php
+$dashboardPageClass = 'notification-inbox-view requests-inbox-view requests-dashboard-view';
+$dashboardPageAttrs = sprintf(
+    'id="requestsDashboardRoot" data-chat-summaries-feed-url="%s"',
+    htmlspecialchars(DIRPAGE . 'dashboard/requestChatSummariesFeed?view=' . urlencode((string) ($requestView ?? '')), ENT_QUOTES, 'UTF-8')
+);
+include DIRREQ . 'app/view/partials/dashboard_page_start.php';
         $currentView = (string) ($requestView ?? '');
         $isAdminScope = ($scope ?? 'user') === 'admin';
         $canManageAllRequests = !empty($canManageAllRequests);
@@ -34,23 +37,23 @@
         $listHeading = $showManagementColumns
             ? 'Todas as solicitações'
             : ($currentView === 'sent' ? 'Enviadas por si' : 'Recebidas');
-    ?>
-
-    <section class="notification-inbox-hero">
-        <div class="notification-inbox-hero-main">
-            <h1><?php echo htmlspecialchars($pageTitle ?? 'Minhas Solicitações'); ?></h1>
-            <p class="notification-inbox-hero-meta">
-                <span><?php echo (int) $requestsTotal; ?> no total</span>
-                <?php if (!empty($requestsList)): ?>
-                    <span class="notification-feed-dot" aria-hidden="true">·</span>
-                    <span><?php echo count($requestsList); ?> nesta página</span>
-                <?php endif; ?>
-            </p>
-        </div>
-        <div class="notification-inbox-hero-actions">
-            <a href="<?php echo DIRPAGE; ?>dashboard/requestChats" class="notification-inbox-text-btn">Ver conversas</a>
-        </div>
-    </section>
+$inboxHeroTitle = (string) ($pageTitle ?? 'Minhas Solicitações');
+ob_start();
+?>
+<span><?php echo (int) $requestsTotal; ?> no total</span>
+<?php if (!empty($requestsList)): ?>
+    <span class="notification-feed-dot" aria-hidden="true">·</span>
+    <span><?php echo count($requestsList); ?> nesta página</span>
+<?php endif;
+$inboxHeroMetaHtml = ob_get_clean();
+ob_start();
+?>
+<a href="<?php echo DIRPAGE; ?>dashboard/requestChats" class="notification-inbox-text-btn">Ver conversas</a>
+<?php
+$inboxHeroActionsHtml = ob_get_clean();
+include DIRREQ . 'app/view/partials/dashboard_inbox_hero.php';
+unset($inboxHeroMetaHtml, $inboxHeroActionsHtml);
+?>
 
     <div class="requests-legend requests-inbox-legend">
         <div class="legend-title">
@@ -193,4 +196,4 @@
             <?php endif; ?>
         <?php endif; ?>
     </div>
-</div>
+<?php include DIRREQ . 'app/view/partials/dashboard_page_end.php'; ?>

@@ -48,11 +48,11 @@ $tabClass = static function (bool $active): string {
             <span>Imóveis</span>
         </a>
     <?php else: ?>
-        <a href="<?php echo DIRPAGE; ?>properties" class="<?php echo $tabClass($isHomeActive); ?>">
+        <a href="<?php echo DIRPAGE; ?>properties" class="<?php echo $tabClass($isHomeActive); ?>"<?php echo $isHomeActive ? ' aria-current="page"' : ''; ?>>
             <i class="fa fa-home" aria-hidden="true"></i>
             <span>Início</span>
         </a>
-        <a href="<?php echo DIRPAGE; ?>dashboard" class="<?php echo $tabClass($isMenuActive); ?> dashboard-mobile-tabbar-link--badged">
+        <a href="<?php echo DIRPAGE; ?>dashboard" class="<?php echo $tabClass($isMenuActive); ?> dashboard-mobile-tabbar-link--badged"<?php echo $isMenuActive ? ' aria-current="page"' : ''; ?>>
             <span class="dashboard-mobile-tabbar-icon-wrap">
                 <i class="fa fa-th-large" aria-hidden="true"></i>
                 <?php if ($unreadNotifications > 0): ?>
@@ -62,7 +62,7 @@ $tabClass = static function (bool $active): string {
             <span>Painel</span>
         </a>
         <?php if ($showNegotiationTabs): ?>
-            <a href="<?php echo DIRPAGE; ?>requests" class="<?php echo $tabClass($isRequestsActive); ?> dashboard-mobile-tabbar-link--badged">
+            <a href="<?php echo DIRPAGE; ?>requests" class="<?php echo $tabClass($isRequestsActive); ?> dashboard-mobile-tabbar-link--badged"<?php echo $isRequestsActive ? ' aria-current="page"' : ''; ?>>
                 <span class="dashboard-mobile-tabbar-icon-wrap">
                     <i class="fa fa-inbox" aria-hidden="true"></i>
                     <?php if ($unreadChatMessages > 0): ?>
@@ -73,12 +73,12 @@ $tabClass = static function (bool $active): string {
             </a>
         <?php endif; ?>
         <?php if ($showMyPropertiesTab): ?>
-            <a href="<?php echo DIRPAGE; ?>dashboard/myProperties" class="<?php echo $tabClass($isMyPropertiesActive); ?>">
+            <a href="<?php echo DIRPAGE; ?>dashboard/myProperties" class="<?php echo $tabClass($isMyPropertiesActive); ?>"<?php echo $isMyPropertiesActive ? ' aria-current="page"' : ''; ?>>
                 <i class="fa fa-building" aria-hidden="true"></i>
                 <span>Meus Imóveis</span>
             </a>
         <?php endif; ?>
-        <a href="<?php echo DIRPAGE; ?>profile" class="<?php echo $tabClass($isProfileActive); ?>">
+        <a href="<?php echo DIRPAGE; ?>profile" class="<?php echo $tabClass($isProfileActive); ?>"<?php echo $isProfileActive ? ' aria-current="page"' : ''; ?>>
             <i class="fa fa-user-circle" aria-hidden="true"></i>
             <span>Perfil</span>
         </a>

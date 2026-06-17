@@ -79,7 +79,7 @@ try {
         }
 
         $propertyTitle = trim((string) ($property['title'] ?? 'Nova propriedade disponível'));
-        $propertyUrl = rtrim(DIRPAGE, '/') . '/public/index.php?route=property/view&id=' . $propertyId;
+        $propertyUrl = DIRPAGE . 'property/' . $propertyId;
         $searchName = $savedSearch['name'] ?? 'sua pesquisa salva';
         $subject = 'Nova propriedade encontrada para ' . $searchName;
 

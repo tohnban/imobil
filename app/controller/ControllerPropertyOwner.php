@@ -568,6 +568,11 @@ class ControllerPropertyOwner
             exit;
         }
 
+        if (($property['status'] ?? '') === 'eliminado') {
+            header('Location: ' . DIRPAGE . 'dashboard/myProperties?error=' . rawurlencode('Imóveis marcados para eliminação não podem ser editados.'));
+            exit;
+        }
+
         $boostRequests   = PropertyBoostRequest::getByProperty((int) $id);
         $hasPendingBoost = PropertyBoostRequest::alreadyPending((int) $id);
 
@@ -604,6 +609,11 @@ class ControllerPropertyOwner
 
         if ((int) ($property['affiliate_id'] ?? 0) !== (int) $user['id']) {
             header('Location: ' . DIRPAGE . 'dashboard/myProperties?error=Sem+permissao+para+editar+este+imovel');
+            exit;
+        }
+
+        if (($property['status'] ?? '') === 'eliminado') {
+            header('Location: ' . DIRPAGE . 'dashboard/myProperties?error=' . rawurlencode('Imóveis marcados para eliminação não podem ser editados.'));
             exit;
         }
 
@@ -702,19 +712,32 @@ class ControllerPropertyOwner
         }
 
         if ((int) ($property['affiliate_id'] ?? 0) !== (int) $user['id']) {
-            header('Location: ' . DIRPAGE . 'dashboard/myProperties?error=Sem+permissao');
-            exit;
+            \Src\classes\ClassAjaxResponse::redirectOrJson(false, 'Sem permissão.', 'dashboard/myProperties');
         }
 
         $newStatus = trim($_POST['new_status'] ?? '');
         if (!in_array($newStatus, ['vendido', 'alugado'], true)) {
-            header('Location: ' . DIRPAGE . 'dashboard/myProperties?error=Estado+invalido');
-            exit;
+            \Src\classes\ClassAjaxResponse::redirectOrJson(false, 'Estado inválido.', 'dashboard/myProperties');
         }
 
         if (($property['status'] ?? '') !== 'disponivel') {
-            header('Location: ' . DIRPAGE . 'dashboard/myProperties?error=So+e+possivel+marcar+imoveis+disponiveis+como+vendido+ou+alugado');
-            exit;
+            \Src\classes\ClassAjaxResponse::redirectOrJson(false, 'Só é possível marcar imóveis disponíveis como vendido ou alugado.', 'dashboard/myProperties');
+        }
+
+        if (Request::hasActiveClosingWonForProperty((int) $id)) {
+            \Src\classes\ClassAjaxResponse::redirectOrJson(
+                false,
+                'Este imóvel tem um fecho em curso nas solicitações. Confirme o recebimento pela área de Solicitações para concluir o processo na plataforma.',
+                'dashboard/myProperties'
+            );
+        }
+
+        $purpose = (string) ($property['purpose'] ?? '');
+        if ($newStatus === 'vendido' && $purpose !== 'venda') {
+            \Src\classes\ClassAjaxResponse::redirectOrJson(false, 'Só imóveis para venda podem ser marcados como vendidos.', 'dashboard/myProperties');
+        }
+        if ($newStatus === 'alugado' && !str_starts_with($purpose, 'aluguer')) {
+            \Src\classes\ClassAjaxResponse::redirectOrJson(false, 'Só imóveis para aluguer podem ser marcados como alugados.', 'dashboard/myProperties');
         }
 
         Property::setStatus((int) $id, $newStatus);
@@ -729,8 +752,107 @@ class ControllerPropertyOwner
             'details'     => 'Estado alterado para: ' . $newStatus,
         ]);
 
-        header('Location: ' . DIRPAGE . 'dashboard/myProperties?success=' . urlencode('Imovel marcado como ' . $newStatus . '.'));
-        exit;
+        $statusLabel = $newStatus === 'vendido' ? 'vendido' : 'alugado';
+        \Src\classes\ClassAjaxResponse::redirectOrJson(true, 'Imóvel marcado como ' . $statusLabel . '.', 'dashboard/myProperties', [
+            'property_id' => (int) $id,
+            'new_status' => $newStatus,
+        ]);
+    }
+
+
+    public function requestDeletion($id)
+    {
+        $user = ClassAccess::requireNonAdmin('dashboard', 'Administradores não podem eliminar imóveis desta forma');
+
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            header('Location: ' . DIRPAGE . 'dashboard/myProperties');
+            exit;
+        }
+
+        $property = Property::find((int) $id);
+        if (!$property) {
+            \Src\classes\ClassAjaxResponse::redirectOrJson(false, 'Imóvel não encontrado.', 'dashboard/myProperties');
+        }
+
+        if ((int) ($property['affiliate_id'] ?? 0) !== (int) $user['id']) {
+            \Src\classes\ClassAjaxResponse::redirectOrJson(false, 'Sem permissão.', 'dashboard/myProperties');
+        }
+
+        if (!Property::canRequestDeletion($property)) {
+            \Src\classes\ClassAjaxResponse::redirectOrJson(false, 'Este imóvel não pode ser eliminado neste estado.', 'dashboard/myProperties');
+        }
+
+        $confirmed = filter_var($_POST['confirm_property_deletion'] ?? '', FILTER_VALIDATE_BOOLEAN)
+            || (string) ($_POST['confirm_property_deletion'] ?? '') === '1';
+        if (!$confirmed) {
+            \Src\classes\ClassAjaxResponse::redirectOrJson(false, 'Confirme que compreende as consequências da eliminação.', 'dashboard/myProperties');
+        }
+
+        $currentPassword = (string) ($_POST['current_password'] ?? '');
+        if (!\Src\classes\ClassAuth::verifyCurrentPassword($user, $currentPassword)) {
+            \Src\classes\ClassAjaxResponse::redirectOrJson(false, 'Indique a palavra-passe actual correcta para confirmar a eliminação.', 'dashboard/myProperties');
+        }
+
+        $propertyId = (int) $id;
+        $propertyTitle = (string) ($property['title'] ?? '');
+
+        if (!Property::requestDeletion($propertyId, (int) $user['id'])) {
+            \Src\classes\ClassAjaxResponse::redirectOrJson(false, 'Não foi possível registar a eliminação do imóvel.', 'dashboard/myProperties');
+        }
+
+        Log::create([
+            'user_id' => $user['id'],
+            'action' => 'request_property_deletion',
+            'entity_type' => 'property',
+            'entity_id' => $propertyId,
+            'details' => json_encode([
+                'grace_days' => Property::getPropertyDeletionGraceDays(),
+                'open_negotiations' => \App\services\ComplianceDeletionService::deletionSummaryForProperty($propertyId)['open_negotiations'] ?? 0,
+            ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
+        ]);
+
+        \App\services\ComplianceDeletionService::afterPropertyDeletionRequested($propertyId, $propertyTitle);
+
+        $graceDays = Property::getPropertyDeletionGraceDays();
+        \Src\classes\ClassAjaxResponse::redirectOrJson(
+            true,
+            'Imóvel marcado para eliminação. Fica indisponível ao público durante ' . $graceDays . ' dias; conversas em curso mantêm-se visíveis.',
+            'dashboard/myProperties'
+        );
+    }
+
+
+    public function cancelDeletion($id)
+    {
+        $user = ClassAccess::requireNonAdmin('dashboard', 'Administradores não podem cancelar eliminação de imóveis desta forma');
+
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            header('Location: ' . DIRPAGE . 'dashboard/myProperties');
+            exit;
+        }
+
+        $property = Property::find((int) $id);
+        if (!$property) {
+            \Src\classes\ClassAjaxResponse::redirectOrJson(false, 'Imóvel não encontrado.', 'dashboard/myProperties');
+        }
+
+        if ((int) ($property['affiliate_id'] ?? 0) !== (int) $user['id']) {
+            \Src\classes\ClassAjaxResponse::redirectOrJson(false, 'Sem permissão.', 'dashboard/myProperties');
+        }
+
+        if (!Property::cancelDeletion((int) $id, (int) $user['id'])) {
+            \Src\classes\ClassAjaxResponse::redirectOrJson(false, 'Não foi possível cancelar a eliminação.', 'dashboard/myProperties');
+        }
+
+        Log::create([
+            'user_id' => $user['id'],
+            'action' => 'cancel_property_deletion',
+            'entity_type' => 'property',
+            'entity_id' => (int) $id,
+            'details' => 'Pedido de eliminação cancelado pelo proprietário',
+        ]);
+
+        \Src\classes\ClassAjaxResponse::redirectOrJson(true, 'Eliminação cancelada. O imóvel voltou ao estado anterior.', 'dashboard/myProperties');
     }
 
 

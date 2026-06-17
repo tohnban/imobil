@@ -32,9 +32,11 @@ class ClassLimitedAccountGuard
 
     private const ALLOWED_DASHBOARD_METHODS = [
         'accountStatus',
+        'accountDeletionStatus',
         'update',
         'resubmitDocument',
         'submitAccountDocument',
+        'cancelAccountDeletion',
     ];
 
     public static function enforce(string $controller, array $url): void
@@ -46,6 +48,26 @@ class ClassLimitedAccountGuard
         $user = ClassAuth::user();
         if (!$user) {
             return;
+        }
+
+        if (ClassAccess::isAdmin($user)) {
+            return;
+        }
+
+        if (ClassAccess::isPendingAccountDeletion($user)) {
+            if (self::isExemptRoute($controller, $url)) {
+                return;
+            }
+
+            if ($controller === 'ControllerLegal') {
+                return;
+            }
+
+            if (self::isDashboardController($controller) && self::isAllowedDashboardRoute($url)) {
+                return;
+            }
+
+            self::redirectDeletionPending();
         }
 
         if (ClassAccess::hasFullPlatformAccess($user)) {
@@ -87,6 +109,16 @@ class ClassLimitedAccountGuard
         }
 
         self::redirectLimited('Isto fica disponível quando a sua conta estiver activa.');
+    }
+
+    public static function redirectDeletionPending(string $message = ''): void
+    {
+        $location = DIRPAGE . 'dashboard/accountDeletionStatus';
+        if ($message !== '') {
+            $location .= '?error=' . rawurlencode($message);
+        }
+        header('Location: ' . $location);
+        exit;
     }
 
     public static function redirectLimited(string $message = ''): void

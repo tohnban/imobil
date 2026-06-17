@@ -31,21 +31,14 @@ function buildUrl(array $extra = []): string {
     return DIRPAGE . 'dashboard/adminSubscriptions?' . http_build_query($params);
 }
 ?>
-<div class="container dashboard-view">
-
-    <section class="dashboard-view-hero compact">
-        <div>
-            <span class="dashboard-hero-kicker">Administração</span>
-            <h1>Subscrições de Utilizadores</h1>
-            <p>Um registo por utilizador (subscrição aberta actual). Histórico completo permanece na base de dados.</p>
-        </div>
-    </section>
-
-    <?php if (!empty($_GET['error'])): ?>
-        <div class="alert alert-danger admin-subscriptions-alert"><?php echo htmlspecialchars((string) $_GET['error']); ?></div>
-    <?php elseif (!empty($_GET['success'])): ?>
-        <div class="alert alert-success admin-subscriptions-alert"><?php echo htmlspecialchars((string) $_GET['success']); ?></div>
-    <?php endif; ?>
+<?php
+$dashboardPageClass = '';
+include DIRREQ . 'app/view/partials/dashboard_page_start.php';
+$heroKicker = 'Administração';
+$heroTitle = 'Subscrições de Utilizadores';
+$heroLead = 'Um registo por utilizador (subscrição aberta actual). Histórico completo permanece na base de dados.';
+include DIRREQ . 'app/view/partials/dashboard_view_hero.php';
+?>
 
     <div class="dashboard-module-card admin-subscriptions-card-spacing">
         <div class="dashboard-module-head compact">
@@ -219,5 +212,5 @@ function buildUrl(array $extra = []): string {
         <?php endif; ?>
     </div>
 
-</div>
+<?php include DIRREQ . 'app/view/partials/dashboard_page_end.php'; ?>
 <script src="<?php echo DIRJS; ?>admin-subscriptions.js?v=20260603"></script>

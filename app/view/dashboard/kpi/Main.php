@@ -1,11 +1,11 @@
-<div class="container dashboard-view">
-    <section class="dashboard-view-hero compact">
-        <div>
-            <span class="dashboard-hero-kicker">Inteligência operacional</span>
-            <h1>KPIs do Sistema</h1>
-            <p>Indicadores de desempenho da plataforma em tempo real.</p>
-        </div>
-    </section>
+<?php
+$dashboardPageClass = '';
+include DIRREQ . 'app/view/partials/dashboard_page_start.php';
+$heroKicker = 'Inteligência operacional';
+$heroTitle = 'KPIs do Sistema';
+$heroLead = 'Indicadores de desempenho da plataforma em tempo real.';
+include DIRREQ . 'app/view/partials/dashboard_view_hero.php';
+?>
 
     <div class="dashboard-module-card dashboard-kpi-section">
         <div class="dashboard-module-head compact">
@@ -32,6 +32,12 @@
                 <div class="kpi-label">Rejeitados</div>
                 <div class="kpi-value"><?php echo (int) ($userStats['rejected'] ?? 0); ?></div>
             </div>
+            <?php if ((int) ($userStats['pending_deletion'] ?? 0) > 0): ?>
+            <div class="kpi-card kpi-red">
+                <div class="kpi-label">A eliminar</div>
+                <div class="kpi-value"><?php echo (int) ($userStats['pending_deletion'] ?? 0); ?></div>
+            </div>
+            <?php endif; ?>
             <div class="kpi-card kpi-blue">
                 <div class="kpi-label">Afiliados</div>
                 <div class="kpi-value"><?php echo (int) ($userStats['affiliates'] ?? 0); ?></div>
@@ -87,6 +93,12 @@
                 <div class="kpi-label">Rejeitados</div>
                 <div class="kpi-value"><?php echo (int) ($propertyStats['rejeitado'] ?? 0); ?></div>
             </div>
+            <?php if ((int) ($propertyStats['eliminado'] ?? 0) > 0): ?>
+            <div class="kpi-card kpi-red">
+                <div class="kpi-label">A eliminar</div>
+                <div class="kpi-value"><?php echo (int) ($propertyStats['eliminado'] ?? 0); ?></div>
+            </div>
+            <?php endif; ?>
             <div class="kpi-card">
                 <div class="kpi-label">Novos este mês</div>
                 <div class="kpi-value"><?php echo (int) ($propertyStats['new_this_month'] ?? 0); ?></div>
@@ -219,5 +231,4 @@
             <?php endif; ?>
         </div>
     </div>
-
-</div>
+<?php include DIRREQ . 'app/view/partials/dashboard_page_end.php'; ?>

@@ -14,21 +14,22 @@ $transactionGroups = FeedGrouping::byRecency($transactions, 'created_at');
 $transactionTotal = count($transactions);
 ?>
 
-<div class="container dashboard-view notification-inbox-view payment-account-feed-view payment-history-dashboard-view">
-    <section class="notification-inbox-hero">
-        <div class="notification-inbox-hero-main">
-            <h1>Movimentos da conta</h1>
-            <p class="notification-inbox-hero-meta">
-                <span><?php echo (int) $transactionTotal; ?> registo<?php echo $transactionTotal === 1 ? '' : 's'; ?></span>
-            </p>
-        </div>
-        <div class="notification-inbox-hero-actions">
-            <a href="<?php echo DIRPAGE; ?>dashboard/exportPaymentHistoryPdf?<?php echo htmlspecialchars($exportQuery, ENT_QUOTES, 'UTF-8'); ?>"
-               class="notification-inbox-text-btn">Descarregar PDF</a>
-            <a href="<?php echo DIRPAGE; ?>dashboard/exportPaymentHistoryCsv?<?php echo htmlspecialchars($exportQuery, ENT_QUOTES, 'UTF-8'); ?>"
-               class="notification-inbox-text-btn notification-inbox-text-btn--muted">Descarregar CSV</a>
-        </div>
-    </section>
+<?php
+$dashboardPageClass = 'notification-inbox-view payment-account-feed-view payment-history-dashboard-view';
+include DIRREQ . 'app/view/partials/dashboard_page_start.php';
+$inboxHeroTitle = 'Movimentos da conta';
+$inboxHeroMeta = (int) $transactionTotal . ' registo' . ($transactionTotal === 1 ? '' : 's');
+ob_start();
+?>
+<a href="<?php echo DIRPAGE; ?>dashboard/exportPaymentHistoryPdf?<?php echo htmlspecialchars($exportQuery, ENT_QUOTES, 'UTF-8'); ?>"
+   class="notification-inbox-text-btn">Descarregar PDF</a>
+<a href="<?php echo DIRPAGE; ?>dashboard/exportPaymentHistoryCsv?<?php echo htmlspecialchars($exportQuery, ENT_QUOTES, 'UTF-8'); ?>"
+   class="notification-inbox-text-btn notification-inbox-text-btn--muted">Descarregar CSV</a>
+<?php
+$inboxHeroActionsHtml = ob_get_clean();
+include DIRREQ . 'app/view/partials/dashboard_inbox_hero.php';
+unset($inboxHeroActionsHtml);
+?>
 
     <div class="notification-inbox-panel payment-account-feed-panel">
         <form method="GET" action="<?php echo DIRPAGE; ?>dashboard/paymentHistory" class="payment-account-feed-filters filter-toolbar-form">
@@ -81,4 +82,4 @@ $transactionTotal = count($transactions);
             require __DIR__ . '/../../partials/user_feed_shell.php';
         ?>
     </div>
-</div>
+<?php include DIRREQ . 'app/view/partials/dashboard_page_end.php'; ?>

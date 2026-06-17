@@ -340,6 +340,15 @@ class ControllerPropertyCatalog
             exit;
         }
 
+        $ownerId = (int) ($property['affiliate_id'] ?? 0);
+        if ($ownerId > 0 && !$isModerator) {
+            $owner = User::findById($ownerId);
+            if ($owner && User::isPendingDeletion($owner)) {
+                header('Location: ' . DIRPAGE . '404');
+                exit;
+            }
+        }
+
         $isFavorite = false;
 
         // Check for referral
@@ -669,6 +678,12 @@ class ControllerPropertyCatalog
 
         $owner = User::findById($ownerId);
         if (!$owner || ($owner['status'] ?? '') !== 'ativo') {
+            header('Location: ' . DIRPAGE . '404');
+            exit;
+        }
+
+        $isModerator = ClassAuth::check() && ClassAccess::isAdmin(ClassAuth::user());
+        if (User::isPendingDeletion($owner) && !$isModerator) {
             header('Location: ' . DIRPAGE . '404');
             exit;
         }

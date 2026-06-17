@@ -15,14 +15,14 @@
     $paginationPrefix = $paginationBaseQuery !== '' ? ($paginationBaseQuery . '&') : '';
 ?>
 
-<div class="container dashboard-view disputes-dashboard-view">
-    <section class="dashboard-view-hero compact">
-        <div>
-            <span class="dashboard-hero-kicker">Moderação</span>
-            <h1>Painel de Disputas</h1>
-            <p>Resolva solicitações contestadas e conclua o desfecho comercial.</p>
-        </div>
-    </section>
+<?php
+$dashboardPageClass = 'disputes-dashboard-view';
+include DIRREQ . 'app/view/partials/dashboard_page_start.php';
+$heroKicker = 'Moderação';
+$heroTitle = 'Painel de Disputas';
+$heroLead = 'Resolva solicitações contestadas e conclua o desfecho comercial.';
+include DIRREQ . 'app/view/partials/dashboard_view_hero.php';
+?>
 
     <div class="dashboard-module-card disputes-module-card">
         <div class="dashboard-module-head compact">
@@ -152,4 +152,4 @@
             </div>
         <?php endif; ?>
     </div>
-</div>
+<?php include DIRREQ . 'app/view/partials/dashboard_page_end.php'; ?>

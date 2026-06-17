@@ -49,21 +49,17 @@ $historyStatusLabels = [
 ];
 ?>
 
-<div class="container dashboard-view subscription-dashboard-view">
+<?php
+$dashboardPageClass = 'subscription-dashboard-view';
+include DIRREQ . 'app/view/partials/dashboard_page_start.php';
+?>
 <div class="sub-shell">
-    <section class="dashboard-view-hero compact">
-        <div>
-            <span class="dashboard-hero-kicker">Comercial</span>
-            <h1>Meu Plano</h1>
-            <p>Gerencie limites, renovação e visibilidade dos seus imóveis.</p>
-        </div>
-    </section>
-
-    <?php if (!empty($_GET['error'])): ?>
-        <div class="sub-feedback error"><?php echo htmlspecialchars((string) $_GET['error']); ?></div>
-    <?php elseif (!empty($_GET['success'])): ?>
-        <div class="sub-feedback success"><?php echo htmlspecialchars((string) $_GET['success']); ?></div>
-    <?php endif; ?>
+    <?php
+    $heroKicker = 'Comercial';
+    $heroTitle = 'Meu Plano';
+    $heroLead = 'Gere limites, renovação e visibilidade dos seus imóveis.';
+    include DIRREQ . 'app/view/partials/dashboard_view_hero.php';
+    ?>
 
     <section class="sub-section">
         <div class="sub-section-header">
@@ -213,4 +209,4 @@ $historyStatusLabels = [
         </div>
     </section>
 </div>
-</div>
+<?php include DIRREQ . 'app/view/partials/dashboard_page_end.php'; ?>

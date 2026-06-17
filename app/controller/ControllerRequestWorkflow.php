@@ -8,6 +8,7 @@ use App\model\Property;
 use App\model\PropertyAffiliate;
 use App\model\Request;
 use App\model\RequestChatMessage;
+use App\services\CommissionClosingService;
 use Src\classes\ClassAccess;
 use Src\classes\ClassAuth;
 use Src\classes\ClassCsrf;
@@ -106,22 +107,26 @@ class ControllerRequestWorkflow
 
         if ($updated) {
             if ($status === 'fechado_ganho' && $isRequestManager && $currentStatus === 'em_disputa' && $property) {
-                Request::consolidateFinancialClosingByModerator((int) $id, (int) ($user['id'] ?? 0));
-                $refreshedRequest = Request::findById((int) $id);
-                if ($refreshedRequest) {
-                    $this->createCommissionFromRequest(
-                        (int) $id,
-                        $refreshedRequest,
-                        $property,
-                        (int) ($user['id'] ?? 0)
-                    );
+                $closing = CommissionClosingService::finalizeModeratorDisputeWin(
+                    (int) $id,
+                    (int) ($user['id'] ?? 0),
+                    $property
+                );
+
+                if (!$closing['ok']) {
+                    $this->redirectBackOr('requests', 'error', (string) ($closing['error'] ?? 'Não foi possível consolidar o fecho.'));
                 }
 
-                $finalStatus = $this->resolvePropertyFinalStatus($property);
-                if ($finalStatus !== null && ($property['status'] ?? '') !== $finalStatus) {
-                    Property::setStatus((int) ($property['id'] ?? 0), $finalStatus);
-                    Request::closeActiveByPropertyClosure((int) ($property['id'] ?? 0), (int) $id);
-                }
+                CommissionClosingService::notifyCommissionCreated(
+                    (int) $id,
+                    (array) ($closing['request'] ?? []),
+                    (array) ($closing['property'] ?? $property),
+                    (int) ($user['id'] ?? 0),
+                    (int) ($closing['commission_id'] ?? 0),
+                    !empty($closing['commission_created']),
+                    !empty($closing['has_valid_affiliate']),
+                    (int) ($closing['affiliate_id'] ?? 0)
+                );
             }
 
             Log::create([
@@ -459,16 +464,22 @@ class ControllerRequestWorkflow
             $this->redirectBackOr('requests', 'error', 'Esta solicitação não pode ser consolidada porque o imóvel já está vendido ou alugado');
         }
 
-        $confirmed = Request::confirmPaymentReceiptByOwner((int) $id, (int) ($user['id'] ?? 0));
+        $closing = CommissionClosingService::finalizeOwnerPaymentReceipt((int) $id, (int) ($user['id'] ?? 0));
 
-        if ($confirmed) {
-            $this->createCommissionFromRequest((int) $id, $request, $property, (int) ($user['id'] ?? 0));
+        if (!empty($closing['ok'])) {
+            $request = (array) ($closing['request'] ?? $request);
+            $property = (array) ($closing['property'] ?? $property);
 
-            $finalStatus = $this->resolvePropertyFinalStatus($property);
-            if ($finalStatus !== null && ($property['status'] ?? '') !== $finalStatus) {
-                Property::setStatus((int) ($property['id'] ?? 0), $finalStatus);
-                Request::closeActiveByPropertyClosure((int) ($property['id'] ?? 0), (int) $id);
-            }
+            CommissionClosingService::notifyCommissionCreated(
+                (int) $id,
+                $request,
+                $property,
+                (int) ($user['id'] ?? 0),
+                (int) ($closing['commission_id'] ?? 0),
+                !empty($closing['commission_created']),
+                !empty($closing['has_valid_affiliate']),
+                (int) ($closing['affiliate_id'] ?? 0)
+            );
 
             Log::create([
                 'user_id' => (int) ($user['id'] ?? 0),
@@ -496,7 +507,7 @@ class ControllerRequestWorkflow
             $this->redirectBackOr('requests', 'success', 'Recebimento confirmado com sucesso');
         }
 
-        $this->redirectBackOr('requests', 'error', 'Não foi possível confirmar o recebimento');
+        $this->redirectBackOr('requests', 'error', (string) ($closing['error'] ?? 'Não foi possível confirmar o recebimento'));
     }
 
 
@@ -679,7 +690,11 @@ class ControllerRequestWorkflow
                 ['property_id' => (int) $property['id']],
                 (int) $user['id']
             );
-            $this->redirectBackOr('dashboard/afiliados?tab=affiliate_requests', 'success', 'Afiliado aprovado com sucesso');
+            $this->redirectBackOr('dashboard/afiliados?tab=affiliate_requests', 'success', 'Afiliado aprovado com sucesso', [
+                'affiliate_request_id' => (int) $id,
+                'action' => 'approve',
+                'property_id' => (int) $property['id'],
+            ]);
         }
 
         $this->redirectBackOr('dashboard/afiliados?tab=affiliate_requests', 'error', 'Não foi possível aprovar a solicitação');
@@ -727,7 +742,11 @@ class ControllerRequestWorkflow
                 ['property_id' => (int) $property['id']],
                 (int) $user['id']
             );
-            $this->redirectBackOr('dashboard/afiliados?tab=affiliate_requests', 'success', 'Solicitação rejeitada');
+            $this->redirectBackOr('dashboard/afiliados?tab=affiliate_requests', 'success', 'Solicitação rejeitada', [
+                'affiliate_request_id' => (int) $id,
+                'action' => 'reject',
+                'property_id' => (int) $property['id'],
+            ]);
         }
 
         $this->redirectBackOr('dashboard/afiliados?tab=affiliate_requests', 'error', 'Não foi possível rejeitar a solicitação');

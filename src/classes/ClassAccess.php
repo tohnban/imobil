@@ -142,6 +142,16 @@ class ClassAccess
         return self::accountState($user)['show_limited_menu'];
     }
 
+    public static function isPendingAccountDeletion(?array $user = null): bool
+    {
+        return self::accountState($user)['is_pending_deletion'] ?? false;
+    }
+
+    public static function canUseDeletionStatusPage(?array $user = null): bool
+    {
+        return self::accountState($user)['can_deletion_status_page'] ?? false;
+    }
+
     public static function canUseAccountStatusPage(?array $user = null): bool
     {
         return self::accountState($user)['can_account_status_page'];
@@ -177,7 +187,7 @@ class ClassAccess
     {
         $state = self::accountState($user);
 
-        return $state['can_full_platform'] || $state['can_account_status_page'];
+        return $state['can_full_platform'] || $state['can_account_status_page'] || $state['can_deletion_status_page'];
     }
 
     /**

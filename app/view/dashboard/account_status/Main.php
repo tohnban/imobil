@@ -38,14 +38,14 @@ $showDocumentFileField = $canManageDocuments && !$documentPendingReview;
 $documentFileRequired = $showDocumentFileField && $canSubmitAccountForm;
 ?>
 
-<div class="container dashboard-view dashboard-account-status-view">
-    <section class="dashboard-view-hero compact">
-        <div>
-            <span class="dashboard-hero-kicker"><?php echo htmlspecialchars((string) ($hero['kicker'] ?? 'A sua conta')); ?></span>
-            <h1><?php echo htmlspecialchars((string) ($hero['title'] ?? 'Estado da conta')); ?></h1>
-            <p><?php echo htmlspecialchars((string) ($hero['text'] ?? '')); ?></p>
-        </div>
-    </section>
+<?php
+$dashboardPageClass = 'dashboard-account-status-view';
+include DIRREQ . 'app/view/partials/dashboard_page_start.php';
+$heroKicker = (string) ($hero['kicker'] ?? 'A sua conta');
+$heroTitle = (string) ($hero['title'] ?? 'Estado da conta');
+$heroLead = (string) ($hero['text'] ?? '');
+include DIRREQ . 'app/view/partials/dashboard_view_hero.php';
+?>
 
     <?php require __DIR__ . '/../../partials/account_state_structure.php'; ?>
 
@@ -172,4 +172,4 @@ $documentFileRequired = $showDocumentFileField && $canSubmitAccountForm;
             </div>
         </div>
     </div>
-</div>
+<?php include DIRREQ . 'app/view/partials/dashboard_page_end.php'; ?>

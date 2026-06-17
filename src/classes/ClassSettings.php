@@ -48,6 +48,16 @@ class ClassSettings
         return (int) self::get($key, (string) $default);
     }
 
+    /** Labels for runtime-only settings not exposed in the admin panel. */
+    private static function runtimeLabel(string $key): string
+    {
+        $labels = [
+            'deletion_overdue_alert_last_sent_at' => 'Último alerta de eliminação em atraso',
+        ];
+
+        return $labels[$key] ?? $key;
+    }
+
     /**
      * Save (insert or update) a setting value.
      */
@@ -56,10 +66,10 @@ class ClassSettings
         try {
             $db   = new ManipularBanco();
             $stmt = $db->prepare(
-                'INSERT INTO settings (`key`, value) VALUES (?, ?)
+                'INSERT INTO settings (`key`, value, label) VALUES (?, ?, ?)
                  ON DUPLICATE KEY UPDATE value = VALUES(value), updated_at = NOW()'
             );
-            $ok = $stmt->execute([$key, $value]);
+            $ok = $stmt->execute([$key, $value, self::runtimeLabel($key)]);
             if ($ok) {
                 self::$cache[$key] = $value;
             }

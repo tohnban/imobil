@@ -40,12 +40,6 @@ $config = ClassTrustBadgeEligibility::getConfig();
     </div>
 
     <div class="dashboard-profile-summary">
-        <?php if (!empty($_GET['error'])): ?>
-            <div class="alert-banner alert-banner-error trust-badge-flash-error" style="margin-bottom:1rem;">
-                <?php echo htmlspecialchars((string) $_GET['error']); ?>
-            </div>
-        <?php endif; ?>
-
         <?php if ($trustSuccessInvalid): ?>
             <div class="alert-banner alert-banner-error trust-badge-flash-error" style="margin-bottom:1rem;">
                 O pedido de selo não foi registado porque ainda não cumpre os requisitos.

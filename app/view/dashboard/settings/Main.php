@@ -43,6 +43,9 @@ $labels = [
     'behavior_home_carousel_size'    => 'Discovery: tamanho carrossel home',
     'behavior_continue_exploring_size' => 'Discovery: bloco continuar a explorar',
     'behavior_promoted_interval'       => 'Discovery: intervalo patrocinados na grelha',
+    'account_deletion_grace_days'      => 'Eliminação de conta: dias de conformidade',
+    'property_deletion_grace_days'     => 'Eliminação de imóvel: dias de conformidade',
+    'deletion_reminder_days_before'    => 'Aviso por email antes da eliminação (dias)',
 ];
 $descriptions = [
     'commission_system_pct'      => 'Percentagem retida pelo sistema quando existe afiliado válido na solicitação.',
@@ -76,6 +79,9 @@ $descriptions = [
     'behavior_home_carousel_size'    => 'Número de cards no carrossel da home.',
     'behavior_continue_exploring_size' => 'Número de cards no bloco Continuar a explorar.',
     'behavior_promoted_interval'       => 'A cada quantos imóveis orgânicos inserir um patrocinado (ex.: 4 = 1 a cada 4).',
+    'account_deletion_grace_days'      => 'Dias entre o pedido do utilizador e a eliminação automática da conta.',
+    'property_deletion_grace_days'     => 'Dias em que o imóvel fica «eliminado» (visível só em conversas) antes de ser removido do portfólio.',
+    'deletion_reminder_days_before'    => 'Enviar email de lembrete quando faltar este número de dias para a eliminação automática (conta ou imóvel).',
 ];
 
 $integerKeys = [
@@ -100,17 +106,19 @@ $integerKeys = [
     'behavior_home_carousel_size',
     'behavior_continue_exploring_size',
     'behavior_promoted_interval',
+    'account_deletion_grace_days',
+    'property_deletion_grace_days',
+    'deletion_reminder_days_before',
 ];
 ?>
-<div class="container dashboard-view">
-
-    <section class="dashboard-view-hero compact">
-        <div>
-            <span class="dashboard-hero-kicker">Administração</span>
-            <h1>Configurações do Sistema</h1>
-            <p>Ajuste os parâmetros operacionais da plataforma.</p>
-        </div>
-    </section>
+<?php
+$dashboardPageClass = '';
+include DIRREQ . 'app/view/partials/dashboard_page_start.php';
+$heroKicker = 'Administração';
+$heroTitle = 'Configurações do Sistema';
+$heroLead = 'Ajuste os parâmetros operacionais da plataforma.';
+include DIRREQ . 'app/view/partials/dashboard_view_hero.php';
+?>
 
     <?php if (!empty($success)): ?>
     <div class="alert-banner alert-banner-success" style="margin-bottom:1.5rem;">
@@ -128,7 +136,7 @@ $integerKeys = [
                 'commission_system_pct', 'commission_affiliate_pct', 'commission_system_only_pct', 'commission_due_days',
             ]],
             ['kicker' => 'Segurança',  'title' => 'Rate Limiting de Requisições',      'keys' => [
-                'rate_limit_post_max', 'rate_limit_post_window_seconds',
+                'rate_limit_post_max', 'rate_limit_post_window_seconds', 'account_deletion_grace_days', 'property_deletion_grace_days', 'deletion_reminder_days_before',
             ]],
             ['kicker' => 'Selo',       'title' => 'Selo de Utilizador de Confiança',   'keys' => [
                 'trust_badge_monthly_fee', 'trust_badge_min_months', 'trust_badge_max_months', 'trust_badge_default_months',
@@ -191,4 +199,4 @@ $integerKeys = [
         </div>
     </form>
 
-</div>
+<?php include DIRREQ . 'app/view/partials/dashboard_page_end.php'; ?>

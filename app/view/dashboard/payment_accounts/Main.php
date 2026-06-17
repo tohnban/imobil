@@ -1,14 +1,11 @@
-<div class="dashboard-content-wrapper payment-accounts-dashboard-view">
-    <div class="dashboard-header">
-        <h1>Meus Dados de Pagamento</h1>
-        <p>Adicione e gerencie suas contas para receber pagamentos.</p>
-    </div>
-
-    <?php if (!empty($_GET['error'])): ?>
-        <div class="sub-feedback error"><?php echo htmlspecialchars((string) $_GET['error']); ?></div>
-    <?php elseif (!empty($_GET['success'])): ?>
-        <div class="sub-feedback success"><?php echo htmlspecialchars((string) $_GET['success']); ?></div>
-    <?php endif; ?>
+<?php
+$dashboardPageClass = 'payment-accounts-dashboard-view';
+include DIRREQ . 'app/view/partials/dashboard_page_start.php';
+$heroKicker = 'Pagamentos';
+$heroTitle = 'Meus Dados de Pagamento';
+$heroLead = 'Adicione e gira as suas contas para receber pagamentos.';
+include DIRREQ . 'app/view/partials/dashboard_view_hero.php';
+?>
 
     <div class="dashboard-card payment-accounts-list-card">
         <div class="dashboard-card-title">
@@ -124,4 +121,4 @@
             <button type="submit" class="dashboard-btn dashboard-btn-primary">Adicionar Conta</button>
         </form>
     </div>
-</div>
+<?php include DIRREQ . 'app/view/partials/dashboard_page_end.php'; ?>

@@ -1,0 +1,117 @@
+/* Dashboard extras – mobile shell and admin table overrides (split from Style.css) */
+
+@media (max-width: 980px) {
+    .dashboard-body.dashboard-has-mobile-tabbar .site-footer .footer-nav-area {
+        display: none;
+    }
+
+    .dashboard-body.dashboard-has-mobile-tabbar .site-footer {
+        padding: 18px 16px 14px;
+        margin-top: 4px;
+    }
+
+    .dashboard-body.dashboard-has-mobile-tabbar .site-footer .footer-brand-block p {
+        display: none;
+    }
+
+    .dashboard-body.dashboard-has-mobile-tabbar .footer-bottom-note {
+        margin-top: 8px;
+        text-align: center;
+    }
+}
+
+@media (max-width: 768px) {
+    .payment-config-admin-view .payment-config-table-wrap {
+        margin: 0;
+        padding: 0;
+        overflow-x: visible;
+    }
+
+    .payment-config-admin-view .payment-config-table {
+        min-width: 0;
+        width: 100%;
+    }
+
+    .payment-config-admin-view .payment-config-table,
+    .payment-config-admin-view .payment-config-table thead,
+    .payment-config-admin-view .payment-config-table tbody,
+    .payment-config-admin-view .payment-config-table th,
+    .payment-config-admin-view .payment-config-table td,
+    .payment-config-admin-view .payment-config-table tr {
+        display: block;
+        min-width: 0;
+    }
+
+    .payment-config-admin-view .payment-config-table thead tr {
+        position: absolute;
+        top: -9999px;
+        left: -9999px;
+    }
+
+    .payment-config-admin-view .payment-config-table tr.payment-config-row {
+        background: #fff;
+        border: 1px solid #dbe7f5;
+        border-radius: 16px;
+        margin-bottom: 12px;
+        box-shadow: 0 4px 14px rgba(15, 37, 82, 0.06);
+        overflow: hidden;
+    }
+
+    .payment-config-admin-view .payment-config-table tr.payment-config-row td {
+        padding: 11px 14px;
+        border-bottom: 1px solid #f0f4f9;
+        display: flex;
+        align-items: flex-start;
+        gap: 10px;
+        font-size: 0.88rem;
+        background: #fff;
+    }
+
+    .payment-config-admin-view .payment-config-table tr.payment-config-row td:last-child {
+        border-bottom: none;
+    }
+
+    .payment-config-admin-view .payment-config-table tr.payment-config-row td::before {
+        content: attr(data-label);
+        flex: 0 0 88px;
+        font-weight: 700;
+        font-size: 0.72rem;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        color: var(--muted, #6d7787);
+        padding-top: 2px;
+        line-height: 1.35;
+    }
+
+    .payment-config-admin-view .payment-config-table tr.payment-config-row td.col-default,
+    .payment-config-admin-view .payment-config-table tr.payment-config-row td.col-actions {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .payment-config-admin-view .payment-config-table tr.payment-config-row td.col-default::before,
+    .payment-config-admin-view .payment-config-table tr.payment-config-row td.col-actions::before {
+        flex: none;
+        width: 100%;
+        margin-bottom: 6px;
+    }
+
+    .payment-config-admin-view .payment-config-table tr.payment-config-row td.col-actions {
+        padding: 14px;
+        background: #f8fafc;
+        border-top: 1px solid #e2e8f0;
+    }
+
+    .payment-config-admin-view .payment-config-inline-form,
+    .payment-config-admin-view .payment-config-inline-form .dashboard-btn,
+    .payment-config-admin-view .payment-config-actions .dashboard-btn {
+        width: 100%;
+        justify-content: center;
+        box-sizing: border-box;
+        margin-bottom: 6px;
+    }
+
+    .payment-config-admin-view .payment-config-actions .dashboard-btn:last-child {
+        margin-bottom: 0;
+    }
+}

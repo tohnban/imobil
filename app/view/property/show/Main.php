@@ -50,10 +50,22 @@ $isOwnerViewing = Src\classes\ClassAuth::check() && (int) (Src\classes\ClassAuth
 $canSubmitPropertyRequest = !empty($canSubmitPropertyRequest);
 $hasLimitedAccountAccess = !empty($hasLimitedAccountAccess);
 $isStaffViewer = Src\classes\ClassAuth::check() && Src\classes\ClassAccess::isAdmin();
-$viewerCanRequestAffiliate = Src\classes\ClassAuth::check()
+$affiliateApprovalMode = (string) ($property['affiliate_approval_mode'] ?? 'auto');
+if (!in_array($affiliateApprovalMode, ['manual', 'auto', 'disabled'], true)) {
+    $affiliateApprovalMode = 'auto';
+}
+$viewerIsPromoter = Src\classes\ClassAuth::check() && Src\classes\ClassAccess::isAffiliate();
+$viewerCanSeeAffiliateSection = Src\classes\ClassAuth::check()
     && $canSubmitPropertyRequest
     && !$isOwnerViewing
     && $status === 'disponivel';
+$viewerCanSubmitAffiliateRequest = $viewerCanSeeAffiliateSection
+    && $viewerIsPromoter
+    && empty($isAffiliate)
+    && $affiliateStatus !== 'pendente'
+    && $affiliateStatus !== 'rejeitado'
+    && $affiliateApprovalMode !== 'disabled';
+$profilePromoterUrl = DIRPAGE . 'profile#promoter-profile';
 $rentPaymentTerms = json_decode((string) ($property['rent_payment_terms'] ?? '[]'), true);
 $rentPaymentTerms = is_array($rentPaymentTerms) ? $rentPaymentTerms : [];
 $rentTermLabels = [
@@ -63,10 +75,6 @@ $rentTermLabels = [
     'anual' => 'Anual',
 ];
 $isLongTermRent = (string) ($property['purpose'] ?? '') === 'aluguer_longo';
-$affiliateApprovalMode = (string) ($property['affiliate_approval_mode'] ?? 'auto');
-if (!in_array($affiliateApprovalMode, ['manual', 'auto', 'disabled'], true)) {
-    $affiliateApprovalMode = 'auto';
-}
 
 $purpose = (string) ($property['purpose'] ?? '');
 $rentalDays = (int) ($property['rental_days'] ?? 0);
@@ -438,10 +446,14 @@ if ($isShortRent && $rentalDays > 0) {
                             </div>
                         <?php endif; ?>
 
-                        <?php if ($viewerCanRequestAffiliate): ?>
+                        <?php if ($viewerCanSeeAffiliateSection): ?>
                             <div class="property-state-card property-state-card-muted property-affiliate-card">
                                 <strong>Programa de afiliação</strong>
-                                <?php if (!empty($isAffiliate)): ?>
+                                <?php if (!$viewerIsPromoter): ?>
+                                    <p>Para solicitar afiliação a imóveis de outros proprietários, active primeiro o seu <strong>perfil de promotor</strong> na sua conta.</p>
+                                    <p class="affiliate-pending-note">É gratuito e permite gerar links de indicação e receber comissões quando houver fecho do negócio.</p>
+                                    <a href="<?php echo htmlspecialchars($profilePromoterUrl, ENT_QUOTES, 'UTF-8'); ?>" class="btn-secondary affiliation-activate-promoter-link">Activar perfil de promotor</a>
+                                <?php elseif (!empty($isAffiliate)): ?>
                                     <p>Você já está aprovado como afiliado deste imóvel e pode usar o seu link de indicação.</p>
                                     <details class="affiliate-terms-details">
                                         <summary class="affiliate-terms-summary">Ver termos de afiliação</summary>
@@ -462,27 +474,35 @@ if ($isShortRent && $rentalDays > 0) {
                                     <?php else: ?>
                                         <p>Solicite afiliação para poder divulgar este imóvel com o seu código e ganhar comissão quando houver fecho do negócio.</p>
                                     <?php endif; ?>
-                                    <?php if ($affiliateApprovalMode !== 'disabled'): ?>
+                                    <?php if ($viewerCanSubmitAffiliateRequest): ?>
                                         <button type="button" class="btn-secondary affiliation-request-btn" data-affiliate-property-id="<?php echo (int) ($property['id'] ?? 0); ?>">Solicitar afiliação</button>
                                     <?php endif; ?>
                                 <?php endif; ?>
                             </div>
                         <?php endif; ?>
 
+                        <?php if ($viewerCanSubmitAffiliateRequest): ?>
                         <!-- Modal de Termos de Afiliação -->
-                        <div id="affiliation-terms-modal" class="modal-overlay" hidden>
+                        <div id="affiliation-terms-modal" class="modal-overlay" hidden data-terms-url="<?php echo htmlspecialchars(DIRPAGE . 'property/getAffiliationTerms', ENT_QUOTES, 'UTF-8'); ?>">
                             <div class="modal-content affiliate-modal-content">
                                 <div class="affiliate-modal-header">
                                     <h2 class="affiliate-modal-title">Programa de Afiliação - Termos e Condições</h2>
-                                    <button type="button" class="btn-icon affiliation-modal-close affiliate-modal-close-btn">×</button>
+                                    <button type="button" class="btn-icon affiliation-modal-close affiliate-modal-close-btn" aria-label="Fechar">×</button>
                                 </div>
-                                <div id="affiliation-terms-body"></div>
-                                <div class="affiliate-modal-actions">
-                                    <button type="button" class="btn-secondary affiliation-modal-cancel">Cancelar</button>
-                                    <button type="button" class="btn-primary affiliation-submit-btn" data-property-id="<?php echo (int) ($property['id'] ?? 0); ?>">Aceito os termos e solicito afiliação</button>
-                                </div>
+                                <form id="affiliation-request-form"
+                                      method="POST"
+                                      action="<?php echo DIRPAGE; ?>property/affiliateRequest/<?php echo (int) ($property['id'] ?? 0); ?>"
+                                      class="affiliation-request-form">
+                                    <?php echo Src\classes\ClassCsrf::field(); ?>
+                                    <div id="affiliation-terms-body"></div>
+                                    <div class="affiliate-modal-actions">
+                                        <button type="button" class="btn-secondary affiliation-modal-cancel">Cancelar</button>
+                                        <button type="submit" class="btn-primary affiliation-submit-btn">Aceito os termos e solicito afiliação</button>
+                                    </div>
+                                </form>
                             </div>
                         </div>
+                        <?php endif; ?>
                     </div>
                 <?php else: ?>
                     <?php if ($status === 'disponivel'): ?>

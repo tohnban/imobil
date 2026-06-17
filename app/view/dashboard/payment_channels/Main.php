@@ -11,11 +11,14 @@ if ($editId > 0 && !empty($channels)) {
 }
 ?>
 
-<div class="dashboard-content-wrapper">
-    <div class="dashboard-header">
-        <h1>Canais do Sistema</h1>
-        <p>Gerencie contas/canais usados pelo sistema para recebimentos e pagamentos.</p>
-    </div>
+<?php
+$dashboardPageClass = 'payment-config-admin-view';
+include DIRREQ . 'app/view/partials/dashboard_page_start.php';
+$heroKicker = 'Administração';
+$heroTitle = 'Canais do Sistema';
+$heroLead = 'Gira contas e canais usados pelo sistema para recebimentos e pagamentos.';
+include DIRREQ . 'app/view/partials/dashboard_view_hero.php';
+?>
 
     <div class="dashboard-card">
         <div class="dashboard-card-title">
@@ -45,7 +48,8 @@ if ($editId > 0 && !empty($channels)) {
             </div>
 
             <?php if (!empty($channels)): ?>
-                <table class="dashboard-table">
+                <div class="dashboard-table-wrap payment-config-table-wrap">
+                <table class="dashboard-table payment-config-table">
                     <thead>
                         <tr>
                             <th>Canal</th>
@@ -58,10 +62,10 @@ if ($editId > 0 && !empty($channels)) {
                     </thead>
                     <tbody>
                         <?php foreach ($channels as $channel): ?>
-                            <tr>
-                                <td><?php echo htmlspecialchars($channel['channel_name'] ?? 'N/A'); ?></td>
-                                <td><?php echo htmlspecialchars($channel['account_name'] ?? 'N/A'); ?></td>
-                                <td class="dashboard-inline-note">
+                            <tr class="payment-config-row">
+                                <td data-label="Canal"><?php echo htmlspecialchars($channel['channel_name'] ?? 'N/A'); ?></td>
+                                <td data-label="Conta"><?php echo htmlspecialchars($channel['account_name'] ?? 'N/A'); ?></td>
+                                <td class="dashboard-inline-note" data-label="Dados">
                                     <?php
                                     $parts = [];
                                     if (!empty($channel['account_number'])) {
@@ -79,25 +83,25 @@ if ($editId > 0 && !empty($channels)) {
                                     echo !empty($parts) ? htmlspecialchars(implode(' | ', $parts)) : 'N/A';
                                     ?>
                                 </td>
-                                <td>
+                                <td data-label="Padrão" class="col-default">
                                     <?php if (!empty($channel['is_default'])): ?>
                                         <span class="dashboard-chip dashboard-chip-success">Padrão</span>
                                     <?php else: ?>
-                                        <form action="<?php echo DIRPAGE; ?>payment_channels/setDefaultChannel/<?php echo (int) $channel['id']; ?>" method="POST" class="dashboard-inline-form">
+                                        <form action="<?php echo DIRPAGE; ?>payment_channels/setDefaultChannel/<?php echo (int) $channel['id']; ?>" method="POST" class="dashboard-inline-form payment-config-inline-form">
                                             <?php echo $csrfField; ?>
                                             <button type="submit" class="dashboard-btn dashboard-btn-small">Definir padrão</button>
                                         </form>
                                     <?php endif; ?>
                                 </td>
-                                <td>
+                                <td data-label="Estado">
                                     <span class="dashboard-chip <?php echo !empty($channel['is_active']) ? 'dashboard-chip-success' : 'dashboard-chip-neutral'; ?>">
                                         <?php echo !empty($channel['is_active']) ? 'Ativo' : 'Inativo'; ?>
                                     </span>
                                 </td>
-                                <td>
+                                <td data-label="Ações" class="col-actions payment-config-actions">
                                     <a href="<?php echo DIRPAGE; ?>payment_channels?method_id=<?php echo (int) $selectedMethodId; ?>&edit=<?php echo (int) $channel['id']; ?>#channel-edit" class="dashboard-btn dashboard-btn-small">Editar</a>
                                     <?php if (!empty($channel['is_active'])): ?>
-                                        <form action="<?php echo DIRPAGE; ?>payment_channels/deactivateChannel/<?php echo (int) $channel['id']; ?>" method="POST" class="dashboard-inline-form" data-confirm="Desativar este canal?">
+                                        <form action="<?php echo DIRPAGE; ?>payment_channels/deactivateChannel/<?php echo (int) $channel['id']; ?>" method="POST" class="dashboard-inline-form payment-config-inline-form" data-confirm="Desativar este canal?">
                                             <?php echo $csrfField; ?>
                                             <button type="submit" class="dashboard-btn dashboard-btn-small dashboard-btn-danger">Desativar</button>
                                         </form>
@@ -107,8 +111,9 @@ if ($editId > 0 && !empty($channels)) {
                         <?php endforeach; ?>
                     </tbody>
                 </table>
+                </div>
             <?php else: ?>
-                <p class="dashboard-empty-copy">Nenhum canal cadastrado para este método.</p>
+                <p class="dashboard-empty-copy">Nenhum canal registado para este método.</p>
             <?php endif; ?>
         </div>
 
@@ -167,7 +172,7 @@ if ($editId > 0 && !empty($channels)) {
                         </div>
                     </div>
 
-                    <button type="submit" class="dashboard-btn dashboard-btn-primary">Salvar alterações</button>
+                    <button type="submit" class="dashboard-btn dashboard-btn-primary">Guardar alterações</button>
                     <a href="<?php echo DIRPAGE; ?>payment_channels?method_id=<?php echo (int) $selectedMethodId; ?>" class="dashboard-btn">Cancelar</a>
                 </form>
             </div>
@@ -233,4 +238,4 @@ if ($editId > 0 && !empty($channels)) {
             </form>
         </div>
     <?php endif; ?>
-</div>
+<?php include DIRREQ . 'app/view/partials/dashboard_page_end.php'; ?>

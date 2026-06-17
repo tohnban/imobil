@@ -72,11 +72,37 @@ Register-ImobilTask `
     -Description  "Renovação de subscrições e downgrade por expiração" `
     -RepeatInterval "PT1H"
 
+# Compliance deletion (a cada 1 hora)
+Register-ImobilTask `
+    -TaskName     "Imobil_Compliance_Deletion_Scheduler" `
+    -ScriptPath   "$RootDir\scripts\compliance_deletion_scheduler.php" `
+    -Description  "Purge e lembretes de eliminacao por conformidade" `
+    -RepeatInterval "PT1H"
+
 # Worker de fila de emails (a cada 5 minutos)
 Register-ImobilTask `
     -TaskName     "Imobil_Mail_Queue_Worker" `
     -ScriptPath   "$RootDir\scripts\mail_queue_worker.php" `
     -Description  "Processa a fila assíncrona de emails" `
     -RepeatInterval "PT5M"
+
+# Workers opcionais (recomendado em produção com volume de imagens/alertas)
+Register-ImobilTask `
+    -TaskName     "Imobil_Image_Queue_Worker" `
+    -ScriptPath   "$RootDir\scripts\image_queue_worker.php" `
+    -Description  "Processamento assíncrono de imagens de imóveis" `
+    -RepeatInterval "PT5M"
+
+Register-ImobilTask `
+    -TaskName     "Imobil_Notify_New_Property_Worker" `
+    -ScriptPath   "$RootDir\scripts\notify_new_property_worker.php" `
+    -Description  "Alertas de novos imóveis para pesquisas guardadas" `
+    -RepeatInterval "PT5M"
+
+Register-ImobilTask `
+    -TaskName     "Imobil_Report_Queue_Worker" `
+    -ScriptPath   "$RootDir\scripts\report_queue_worker.php" `
+    -Description  "Relatórios pesados em background" `
+    -RepeatInterval "PT15M"
 
 Write-Host "`nTarefas registadas com sucesso.`n" -ForegroundColor Cyan

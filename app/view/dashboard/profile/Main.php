@@ -1,15 +1,14 @@
-<div class="container dashboard-view dashboard-profile-view">
-    <?php $isAdminProfile = !empty($isAdminProfile); ?>
-    <section class="dashboard-view-hero compact">
-        <div>
-            <span class="dashboard-hero-kicker">Conta</span>
-            <h1><?php echo $isAdminProfile ? 'Segurança da conta' : 'Meu Perfil'; ?></h1>
-            <p><?php echo $isAdminProfile
-                ? 'Actualize a sua foto e palavra-passe quando precisar.'
-                : 'Atualize dados, segurança e estado de confiança da sua conta.'; ?></p>
-        </div>
-    </section>
-
+<?php
+$isAdminProfile = !empty($isAdminProfile);
+$dashboardPageClass = 'dashboard-profile-view';
+include DIRREQ . 'app/view/partials/dashboard_page_start.php';
+$heroKicker = 'Conta';
+$heroTitle = $isAdminProfile ? 'Segurança da conta' : 'Meu Perfil';
+$heroLead = $isAdminProfile
+    ? 'Actualize a sua foto e palavra-passe quando precisar.'
+    : 'Atualize dados, segurança e estado de confiança da sua conta.';
+include DIRREQ . 'app/view/partials/dashboard_view_hero.php';
+?>
     <?php if ($isAdminProfile): ?>
         <?php $accountRoleLabel = Src\classes\ClassAccess::roleLabel($user ?? null); ?>
         <div class="dashboard-profile-layout dashboard-profile-layout-admin">
@@ -122,7 +121,6 @@
                 <div class="dashboard-module-head compact">
                     <div>
                         <span class="dashboard-module-kicker">Avatar</span>
-                        <h3>Apresentação</h3>
                     </div>
                 </div>
 
@@ -263,7 +261,7 @@
             $promoterUserTypeLabel = $promoterUserType === 'pessoa_juridica' ? 'pessoa jurídica' : 'pessoa singular';
             ?>
             <?php if (empty($user['is_admin']) && empty($user['is_affiliate'])): ?>
-            <div class="dashboard-module-card">
+            <div class="dashboard-module-card" id="promoter-profile">
                 <div class="dashboard-module-head compact">
                     <div>
                         <span class="dashboard-module-kicker">Promotor</span>
@@ -290,24 +288,24 @@
                         <h2 class="affiliate-modal-title" id="promoter-terms-modal-title">Termos e Condições — Perfil de Promotor</h2>
                         <button type="button" class="btn-icon promoter-terms-modal-close affiliate-modal-close-btn" aria-label="Fechar">×</button>
                     </div>
-                    <div id="promoter-terms-body" class="affiliate-terms-display"></div>
-                    <div class="affiliate-modal-actions">
-                        <label class="promoter-terms-accept-label">
-                            <input type="checkbox" id="promoter-terms-checkbox">
-                            Li e aceito os Termos e Condições para <?php echo htmlspecialchars($promoterUserTypeLabel); ?>
-                        </label>
-                        <div class="promoter-terms-modal-buttons">
-                            <button type="button" class="btn-secondary promoter-terms-modal-cancel">Cancelar</button>
-                            <button type="button" class="btn-primary promoter-terms-modal-submit" id="promoter-terms-submit" disabled>Aceito e activo o perfil</button>
+                    <form id="promoter-activate-form" action="<?php echo DIRPAGE; ?>dashboard/becomeAffiliate" method="POST" class="promoter-activate-form">
+                        <?php echo Src\classes\ClassCsrf::field(); ?>
+                        <input type="hidden" name="accept_promoter_terms" value="1">
+
+                        <div id="promoter-terms-body" class="affiliate-terms-display"></div>
+                        <div class="affiliate-modal-actions">
+                            <label class="promoter-terms-accept-label">
+                                <input type="checkbox" id="promoter-terms-checkbox">
+                                Li e aceito os Termos e Condições para <?php echo htmlspecialchars($promoterUserTypeLabel); ?>
+                            </label>
+                            <div class="promoter-terms-modal-buttons">
+                                <button type="button" class="btn-secondary promoter-terms-modal-cancel">Cancelar</button>
+                                <button type="submit" class="btn-primary promoter-terms-modal-submit" id="promoter-terms-submit" disabled>Aceito e activo o perfil</button>
+                            </div>
                         </div>
-                    </div>
+                    </form>
                 </div>
             </div>
-
-            <form id="promoter-activate-form" action="<?php echo DIRPAGE; ?>dashboard/becomeAffiliate" method="POST" hidden>
-                <?php echo Src\classes\ClassCsrf::field(); ?>
-                <input type="hidden" name="accept_promoter_terms" value="1">
-            </form>
             <?php elseif (!empty($user['is_affiliate'])): ?>
             <div class="dashboard-module-card">
                 <div class="dashboard-module-head compact">
@@ -448,5 +446,51 @@
         </div>
         </div>
     </div>
+
+    <?php if (!empty($canRequestAccountDeletion)): ?>
+    <div class="dashboard-module-card dashboard-form-shell profile-deletion-section" style="margin-top:1.5rem;">
+        <div class="dashboard-module-head compact">
+            <div>
+                <span class="dashboard-module-kicker">Zona de risco</span>
+                <h3>Eliminar conta</h3>
+            </div>
+        </div>
+        <p class="dashboard-inline-note">
+            Ao solicitar a eliminação, a conta entra em período de conformidade de
+            <strong><?php echo (int) ($deletionGraceDays ?? App\model\User::getAccountDeletionGraceDays()); ?> dias</strong>.
+            Durante esse tempo o acesso fica limitado, os seus conteúdos ficam indisponíveis para outros utilizadores e,
+            no fim do prazo, a conta é eliminada automaticamente (salvo cancelamento ou acção da equipa).
+        </p>
+        <?php
+            $accountDeletionSummary = is_array($accountDeletionSummary ?? null) ? $accountDeletionSummary : [];
+            $summaryProperties = (int) ($accountDeletionSummary['properties_deletable'] ?? 0);
+            $summaryNegotiations = (int) ($accountDeletionSummary['open_negotiations'] ?? 0);
+        ?>
+        <?php if ($summaryProperties > 0 || $summaryNegotiations > 0): ?>
+        <ul class="profile-deletion-impact-list dashboard-inline-note">
+            <?php if ($summaryProperties > 0): ?>
+                <li><strong><?php echo $summaryProperties; ?></strong> imóvel<?php echo $summaryProperties === 1 ? '' : 'is'; ?> será<?php echo $summaryProperties === 1 ? '' : 'ão'; ?> também marcado<?php echo $summaryProperties === 1 ? '' : 's'; ?> para eliminação.</li>
+            <?php endif; ?>
+            <?php if ($summaryNegotiations > 0): ?>
+                <li><strong><?php echo $summaryNegotiations; ?></strong> negociação<?php echo $summaryNegotiations === 1 ? '' : 'ões'; ?> em curso — os chats mantêm-se visíveis durante o período de conformidade.</li>
+            <?php endif; ?>
+        </ul>
+        <?php endif; ?>
+        <form action="<?php echo DIRPAGE; ?>dashboard/requestAccountDeletion" method="POST" class="profile-update-form profile-deletion-form">
+            <?php echo Src\classes\ClassCsrf::field(); ?>
+            <div class="form-group">
+                <label class="profile-deletion-confirm">
+                    <input type="checkbox" name="confirm_account_deletion" value="1" required>
+                    <span>Compreendo que o meu perfil, imóveis e dados associados deixarão de estar acessíveis e que a conta será eliminada após o período de conformidade.</span>
+                </label>
+            </div>
+            <div class="form-group">
+                <label for="deletion_current_password">Palavra-passe actual *</label>
+                <input type="password" id="deletion_current_password" name="current_password" required autocomplete="current-password">
+            </div>
+            <button type="submit" class="btn-secondary profile-deletion-submit" data-confirm="Tem a certeza que deseja solicitar a eliminação da sua conta?">Solicitar eliminação da conta</button>
+        </form>
+    </div>
     <?php endif; ?>
-</div>
+    <?php endif; ?>
+<?php include DIRREQ . 'app/view/partials/dashboard_page_end.php'; ?>

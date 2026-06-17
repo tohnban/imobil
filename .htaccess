@@ -18,7 +18,7 @@ RewriteCond %{HTTP:Authorization} .
 RewriteRule .* - [E=HTTP_AUTHORIZATION:%{HTTP:Authorization}]
 
 RewriteCond %{REQUEST_FILENAME} !-f
-RewriteRule ^(.*)$ /public/index.php?url=$1 [QSA,L]
+RewriteRule ^(.*)$ public/index.php?url=$1 [QSA,L]
 
 # Block direct web access to internal PHP/bootstrap files at project root.
 <FilesMatch "^(phpstan-bootstrap)\.php$">

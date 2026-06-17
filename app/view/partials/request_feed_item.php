@@ -35,12 +35,14 @@ $propertyStatusMap = [
     'pendente' => 'Pendente',
     'em_analise' => 'Em análise',
     'rejeitado' => 'Rejeitado',
+    'eliminado' => 'Eliminado',
 ];
 $propertyStatusLabel = $propertyStatusMap[$propertyStatus] ?? ucfirst(str_replace('_', ' ', $propertyStatus));
 $propertyCommerciallyClosed = in_array($propertyStatus, ['vendido', 'alugado'], true);
+$propertyPubliclyUnavailable = in_array($propertyStatus, ['eliminado'], true) || $propertyCommerciallyClosed;
 $propertyId = (int) ($request['property_id'] ?? 0);
 $propertyTitle = (string) ($request['title'] ?? '');
-$propertyUrl = DIRPAGE . 'property/' . $propertyId;
+$propertyUrl = $propertyPubliclyUnavailable ? '' : (DIRPAGE . 'property/' . $propertyId);
 $createdAt = (string) ($request['created_at'] ?? '');
 $relativeTime = Notification::relativeTime($createdAt);
 $absoluteTime = $createdAt !== '' ? date('d/m/Y H:i', strtotime($createdAt)) : '';
@@ -95,8 +97,14 @@ if ($chatPreview !== '' && function_exists('mb_strimwidth')) {
          data-property-status="<?php echo htmlspecialchars(strtolower($propertyStatus), ENT_QUOTES, 'UTF-8'); ?>"
          data-payment-status="<?php echo htmlspecialchars(strtolower((string) ($paymentConfirmationStatus ?: 'none')), ENT_QUOTES, 'UTF-8'); ?>"
          data-request-id="<?php echo $requestId; ?>">
+    <?php if ($propertyUrl !== ''): ?>
     <a href="<?php echo htmlspecialchars($propertyUrl, ENT_QUOTES, 'UTF-8'); ?>"
        class="notification-feed-link request-feed-link">
+    <?php else: ?>
+    <div class="notification-feed-link request-feed-link is-static"
+         role="group"
+         aria-label="<?php echo htmlspecialchars($propertyTitle . ' — imóvel indisponível ao público', ENT_QUOTES, 'UTF-8'); ?>">
+    <?php endif; ?>
         <span class="notification-feed-icon <?php echo htmlspecialchars($feedTone, ENT_QUOTES, 'UTF-8'); ?>" aria-hidden="true">
             <i class="fa <?php echo htmlspecialchars($feedIcon, ENT_QUOTES, 'UTF-8'); ?>"></i>
         </span>
@@ -120,7 +128,11 @@ if ($chatPreview !== '' && function_exists('mb_strimwidth')) {
         <?php if ($chatUnread > 0): ?>
             <span class="notification-feed-unread-dot" aria-label="<?php echo (int) $chatUnread; ?> mensagem(ns) nova(s)"></span>
         <?php endif; ?>
+    <?php if ($propertyUrl !== ''): ?>
     </a>
+    <?php else: ?>
+    </div>
+    <?php endif; ?>
 
     <div class="request-feed-mobile-bar">
         <a class="request-feed-mobile-chat" href="<?php echo DIRPAGE; ?>dashboard/requestChat/<?php echo $requestId; ?>">
@@ -145,6 +157,8 @@ if ($chatPreview !== '' && function_exists('mb_strimwidth')) {
         </div>
         <?php if ($propertyCommerciallyClosed): ?>
             <span class="request-action-empty">Negociação encerrada: imóvel <?php echo htmlspecialchars(strtolower($propertyStatusLabel)); ?>.</span>
+        <?php elseif ($propertyPubliclyUnavailable && $propertyStatus === 'eliminado'): ?>
+            <span class="request-action-empty">Imóvel eliminado — indisponível ao público, mas o chat mantém-se activo durante o período de conformidade.</span>
         <?php endif; ?>
         <div class="request-chat-summary" data-chat-summary-for-request="<?php echo $requestId; ?>" <?php echo $chatCount > 0 ? '' : 'hidden'; ?>>
             <strong>

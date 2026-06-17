@@ -109,18 +109,6 @@ class ControllerDashboardAffiliate
         $user = ClassAccess::requireNonAdmin('dashboard', 'Administradores não têm portfólio de imóveis');
         $properties = Property::getByAffiliate($user['id']);
 
-        $propertyIds = array_map(
-            static fn (array $property): int => (int) ($property['id'] ?? 0),
-            $properties
-        );
-        $affiliateRequests = PropertyAffiliate::getByProperties($propertyIds, 'pendente');
-
-        foreach ($propertyIds as $propertyId) {
-            if (!isset($affiliateRequests[$propertyId])) {
-                $affiliateRequests[$propertyId] = [];
-            }
-        }
-
         $pendingBoostIds = [];
         foreach (PropertyBoostRequest::getPending() as $boostRequest) {
             $pid = (int) ($boostRequest['property_id'] ?? 0);
@@ -136,9 +124,9 @@ class ControllerDashboardAffiliate
         $render->setData([
             'user' => $user,
             'properties' => $properties,
-            'affiliateRequests' => $affiliateRequests,
             'pendingBoostIds' => $pendingBoostIds,
             'boostPricing' => PropertyBoostRequest::getBoostPricingConfig(),
+            'propertyDeletionGraceDays' => Property::getPropertyDeletionGraceDays(),
         ]);
         $render->setDir('dashboard/my_properties');
         $render->renderLayout();

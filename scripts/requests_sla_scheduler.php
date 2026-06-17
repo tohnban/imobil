@@ -23,45 +23,53 @@ require_once $rootDir . '/config/config.php';
 use App\model\Request;
 use App\model\Notification;
 
-$expiredCount = Request::autoExpireOpenRequests();
-$dueAlerts = Request::getDueSlaAlerts(200);
+$expiredCount = 0;
+$dueAlerts = [];
 $alertsSent = 0;
+$error = null;
 
-foreach ($dueAlerts as $entry) {
-    $requestId = (int) ($entry['id'] ?? 0);
-    if ($requestId <= 0) {
-        continue;
+try {
+    $expiredCount = Request::autoExpireOpenRequests();
+    $dueAlerts = Request::getDueSlaAlerts(200);
+
+    foreach ($dueAlerts as $entry) {
+        $requestId = (int) ($entry['id'] ?? 0);
+        if ($requestId <= 0) {
+            continue;
+        }
+
+        $propertyTitle = (string) ($entry['property_title'] ?? 'Imovel');
+        $status = (string) ($entry['status'] ?? 'pendente');
+        $daysWithoutUpdate = (int) ($entry['days_without_update'] ?? 0);
+        $requesterId = (int) ($entry['requester_id'] ?? 0);
+        $ownerId = (int) ($entry['owner_id'] ?? 0);
+
+        if ($requesterId > 0) {
+            Notification::notifyRequestSlaReminder(
+                $requesterId,
+                $requestId,
+                $propertyTitle,
+                $status,
+                $daysWithoutUpdate
+            );
+        }
+
+        if ($ownerId > 0 && $ownerId !== $requesterId) {
+            Notification::notifyRequestSlaReminder(
+                $ownerId,
+                $requestId,
+                $propertyTitle,
+                $status,
+                $daysWithoutUpdate
+            );
+        }
+
+        if (Request::markSlaAlertSent($requestId, 7)) {
+            $alertsSent++;
+        }
     }
-
-    $propertyTitle = (string) ($entry['property_title'] ?? 'Imovel');
-    $status = (string) ($entry['status'] ?? 'pendente');
-    $daysWithoutUpdate = (int) ($entry['days_without_update'] ?? 0);
-    $requesterId = (int) ($entry['requester_id'] ?? 0);
-    $ownerId = (int) ($entry['owner_id'] ?? 0);
-
-    if ($requesterId > 0) {
-        Notification::notifyRequestSlaReminder(
-            $requesterId,
-            $requestId,
-            $propertyTitle,
-            $status,
-            $daysWithoutUpdate
-        );
-    }
-
-    if ($ownerId > 0 && $ownerId !== $requesterId) {
-        Notification::notifyRequestSlaReminder(
-            $ownerId,
-            $requestId,
-            $propertyTitle,
-            $status,
-            $daysWithoutUpdate
-        );
-    }
-
-    if (Request::markSlaAlertSent($requestId, 7)) {
-        $alertsSent++;
-    }
+} catch (\Throwable $e) {
+    $error = 'scheduler_failed';
 }
 
 $report = [
@@ -70,5 +78,10 @@ $report = [
     'due_alerts_processed' => count($dueAlerts),
     'alerts_marked_sent' => $alertsSent,
 ];
+if ($error !== null) {
+    $report['error'] = $error;
+}
 
 echo json_encode($report, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) . PHP_EOL;
+
+exit($error === null ? 0 : 1);

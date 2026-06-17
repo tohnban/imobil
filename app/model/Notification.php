@@ -938,4 +938,24 @@ class Notification extends ManipularBanco
             return 0;
         }
     }
+
+    public static function deleteAllForUser(int $userId): int
+    {
+        if ($userId <= 0) {
+            return 0;
+        }
+
+        try {
+            $db = new self();
+            $sql = "DELETE FROM {$db->table} WHERE user_id = ?";
+            $stmt = $db->prepare($sql);
+            if (!$stmt->execute([$userId])) {
+                return 0;
+            }
+
+            return (int) $stmt->rowCount();
+        } catch (\Throwable $e) {
+            return 0;
+        }
+    }
 }

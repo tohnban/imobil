@@ -30,34 +30,30 @@ $buildCursorUrl = static function (string $cursorValue) use ($queryParams): stri
 $notificationGroups = FeedGrouping::byRecency($notifications);
 ?>
 
-<div class="container dashboard-view notification-inbox-view">
-    <section class="notification-inbox-hero">
-        <div class="notification-inbox-hero-main">
-            <h1>Notificações</h1>
-            <p class="notification-inbox-hero-meta">
-                <?php if ($unread > 0): ?>
-                    <span class="notification-inbox-unread-pill"><?php echo (int) $unread; ?> não lidas</span>
-                <?php endif; ?>
-                <span><?php echo (int) $total; ?> no total</span>
-            </p>
-        </div>
-        <div class="notification-inbox-hero-actions">
-            <?php if ($unread > 0): ?>
-                <form action="<?php echo DIRPAGE; ?>notification/mark_all_as_read" method="POST" class="notification-inbox-inline-form">
-                    <?php echo Src\classes\ClassCsrf::field(); ?>
-                    <button type="submit" class="notification-inbox-text-btn">Marcar todas como lidas</button>
-                </form>
-            <?php endif; ?>
-            <a href="<?php echo DIRPAGE; ?>notification/archive" class="notification-inbox-text-btn notification-inbox-text-btn--muted">Arquivo</a>
-        </div>
-    </section>
-
-    <?php if (!empty($_GET['error'])): ?>
-        <div class="sub-feedback error"><?php echo htmlspecialchars((string) $_GET['error']); ?></div>
-    <?php endif; ?>
-    <?php if (!empty($_GET['success'])): ?>
-        <div class="sub-feedback success"><?php echo htmlspecialchars((string) $_GET['success']); ?></div>
-    <?php endif; ?>
+<?php
+$dashboardPageClass = 'notification-inbox-view';
+include DIRREQ . 'app/view/partials/dashboard_page_start.php';
+$inboxHeroTitle = 'Notificações';
+ob_start();
+if ($unread > 0): ?>
+    <span class="notification-inbox-unread-pill"><?php echo (int) $unread; ?> não lidas</span>
+<?php endif; ?>
+<span><?php echo (int) $total; ?> no total</span>
+<?php
+$inboxHeroMetaHtml = ob_get_clean();
+ob_start();
+if ($unread > 0): ?>
+    <form action="<?php echo DIRPAGE; ?>notification/mark_all_as_read" method="POST" class="notification-inbox-inline-form">
+        <?php echo Src\classes\ClassCsrf::field(); ?>
+        <button type="submit" class="notification-inbox-text-btn">Marcar todas como lidas</button>
+    </form>
+<?php endif; ?>
+<a href="<?php echo DIRPAGE; ?>notification/archive" class="notification-inbox-text-btn notification-inbox-text-btn--muted">Arquivo</a>
+<?php
+$inboxHeroActionsHtml = ob_get_clean();
+include DIRREQ . 'app/view/partials/dashboard_inbox_hero.php';
+unset($inboxHeroMetaHtml, $inboxHeroActionsHtml);
+?>
 
     <div class="notification-inbox-panel">
         <?php if (empty($notifications)): ?>
@@ -95,4 +91,4 @@ $notificationGroups = FeedGrouping::byRecency($notifications);
             <?php endif; ?>
         <?php endif; ?>
     </div>
-</div>
+<?php include DIRREQ . 'app/view/partials/dashboard_page_end.php'; ?>

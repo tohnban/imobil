@@ -108,6 +108,22 @@ class Document extends ManipularBanco
         return $stmt->fetchAll(\PDO::FETCH_ASSOC);
     }
 
+    public static function deleteAllRecordsForUser(int $userId): int
+    {
+        if (!self::hasDocumentsTable() || $userId <= 0) {
+            return 0;
+        }
+
+        $db = new self();
+        $sql = 'DELETE FROM documents WHERE user_id = ?';
+        $stmt = $db->prepare($sql);
+        if (!$stmt->execute([$userId])) {
+            return 0;
+        }
+
+        return $stmt->rowCount();
+    }
+
     /**
      * Get document by ID
      *
@@ -178,6 +194,48 @@ class Document extends ManipularBanco
 
         $result = $stmt->fetch(\PDO::FETCH_ASSOC);
         return $result ?: null;
+    }
+
+    /**
+     * @return array<int, array<string, mixed>>
+     */
+    public static function getAllByProperty(int $propertyId, ?string $type = null): array
+    {
+        if (!self::hasDocumentsTable() || $propertyId <= 0) {
+            return [];
+        }
+
+        $db = new self();
+        $sql = 'SELECT * FROM documents WHERE property_id = ?';
+        $params = [$propertyId];
+
+        if ($type !== null) {
+            $sql .= ' AND type = ?';
+            $params[] = $type;
+        }
+
+        $sql .= ' ORDER BY created_at DESC';
+
+        $stmt = $db->prepare($sql);
+        $stmt->execute($params);
+
+        return $stmt->fetchAll(\PDO::FETCH_ASSOC) ?: [];
+    }
+
+    public static function deleteAllRecordsForProperty(int $propertyId): int
+    {
+        if (!self::hasDocumentsTable() || $propertyId <= 0) {
+            return 0;
+        }
+
+        $db = new self();
+        $sql = 'DELETE FROM documents WHERE property_id = ?';
+        $stmt = $db->prepare($sql);
+        if (!$stmt->execute([$propertyId])) {
+            return 0;
+        }
+
+        return $stmt->rowCount();
     }
 
     /**

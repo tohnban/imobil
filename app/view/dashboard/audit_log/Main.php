@@ -30,27 +30,34 @@ $rangeStart = $total > 0 && !$isFiltered ? (($page - 1) * $perPage) + 1 : ($visi
 $rangeEnd = $isFiltered ? $visibleCount : min($total, $rangeStart + $visibleCount - 1);
 ?>
 
-<div class="container dashboard-view audit-log-dashboard-view">
-    <section class="dashboard-view-hero compact audit-log-hero">
-        <div>
-            <span class="dashboard-hero-kicker">Rastreabilidade</span>
-            <h1>Registo de Auditoria</h1>
-            <?php if ($isFiltered): ?>
-                <p>
-                    Historial de
-                    <strong><?php echo htmlspecialchars($entityLabels[$filterType] ?? $filterType); ?> #<?php echo $filterId; ?></strong>
-                    — <?php echo $visibleCount; ?> entrada<?php echo $visibleCount === 1 ? '' : 's'; ?>.
-                </p>
-            <?php else: ?>
-                <p><?php echo number_format($total, 0, ',', '.'); ?> entradas registadas no sistema.</p>
-            <?php endif; ?>
-        </div>
-        <?php if ($isFiltered): ?>
-            <div class="audit-log-hero-actions">
-                <a href="<?php echo DIRPAGE; ?>dashboard/auditLog" class="btn-secondary">Ver todos os registos</a>
-            </div>
-        <?php endif; ?>
-    </section>
+<?php
+$dashboardPageClass = 'audit-log-dashboard-view';
+include DIRREQ . 'app/view/partials/dashboard_page_start.php';
+$heroKicker = 'Rastreabilidade';
+$heroTitle = 'Registo de Auditoria';
+$heroClass = 'audit-log-hero';
+if ($isFiltered) {
+    ob_start();
+    ?>
+    <p>
+        Historial de
+        <strong><?php echo htmlspecialchars($entityLabels[$filterType] ?? $filterType); ?> #<?php echo $filterId; ?></strong>
+        — <?php echo $visibleCount; ?> entrada<?php echo $visibleCount === 1 ? '' : 's'; ?>.
+    </p>
+    <?php
+    $heroLeadHtml = ob_get_clean();
+    ob_start();
+    ?>
+    <div class="audit-log-hero-actions">
+        <a href="<?php echo DIRPAGE; ?>dashboard/auditLog" class="btn-secondary">Ver todos os registos</a>
+    </div>
+    <?php
+    $heroActionsHtml = ob_get_clean();
+} else {
+    $heroLead = number_format($total, 0, ',', '.') . ' entradas registadas no sistema.';
+}
+include DIRREQ . 'app/view/partials/dashboard_view_hero.php';
+?>
 
     <div class="dashboard-module-card audit-log-panel">
         <div class="dashboard-module-head compact audit-log-panel-head">
@@ -160,4 +167,4 @@ $rangeEnd = $isFiltered ? $visibleCount : min($total, $rangeStart + $visibleCoun
             <p class="dashboard-empty-copy dashboard-empty-copy-spaced">Sem entradas de auditoria registadas.</p>
         <?php endif; ?>
     </div>
-</div>
+<?php include DIRREQ . 'app/view/partials/dashboard_page_end.php'; ?>

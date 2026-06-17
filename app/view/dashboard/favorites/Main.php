@@ -6,18 +6,19 @@ $feedGroups = $propertyCount > 0
     : [];
 ?>
 
-<div class="container dashboard-view notification-inbox-view favorites-inbox-view">
-    <section class="notification-inbox-hero">
-        <div class="notification-inbox-hero-main">
-            <h1>Meus Favoritos</h1>
-            <p class="notification-inbox-hero-meta">
-                <span><?php echo (int) $propertyCount; ?> guardado<?php echo $propertyCount === 1 ? '' : 's'; ?></span>
-            </p>
-        </div>
-        <div class="notification-inbox-hero-actions">
-            <a href="<?php echo DIRPAGE; ?>properties" class="notification-inbox-text-btn">Explorar imóveis</a>
-        </div>
-    </section>
+<?php
+$dashboardPageClass = 'notification-inbox-view favorites-inbox-view';
+include DIRREQ . 'app/view/partials/dashboard_page_start.php';
+$inboxHeroTitle = 'Meus Favoritos';
+$inboxHeroMeta = (int) $propertyCount . ' guardado' . ($propertyCount === 1 ? '' : 's');
+ob_start();
+?>
+<a href="<?php echo DIRPAGE; ?>properties" class="notification-inbox-text-btn">Explorar imóveis</a>
+<?php
+$inboxHeroActionsHtml = ob_get_clean();
+include DIRREQ . 'app/view/partials/dashboard_inbox_hero.php';
+unset($inboxHeroActionsHtml);
+?>
 
     <div class="notification-inbox-panel favorites-inbox-panel">
         <?php
@@ -39,4 +40,4 @@ $feedGroups = $propertyCount > 0
             </div>
         <?php endif; ?>
     </div>
-</div>
+<?php include DIRREQ . 'app/view/partials/dashboard_page_end.php'; ?>

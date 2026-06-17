@@ -1,5 +1,6 @@
-<div class="container dashboard-view">
-    <?php
+<?php
+$dashboardPageClass = '';
+include DIRREQ . 'app/view/partials/dashboard_page_start.php';
         $canManageSuperAdminTabs = !empty($canManageSuperAdminTabs)
             || Src\classes\ClassAccess::isSuperAdmin($user ?? null);
         $page = max(1, (int) ($page ?? 1));
@@ -45,21 +46,11 @@
             }
             return DIRPAGE . 'dashboard/moderateUsers?' . http_build_query($params);
         }
-    ?>
-    <section class="dashboard-view-hero compact">
-        <div>
-            <span class="dashboard-hero-kicker">Moderação</span>
-            <h1>Moderação de Usuários</h1>
-            <p>Revise documentos, confiança e aprovações pendentes.</p>
-        </div>
-    </section>
-
-    <?php if (!empty($_GET['error'])): ?>
-        <div class="sub-feedback error"><?php echo htmlspecialchars((string) $_GET['error']); ?></div>
-    <?php endif; ?>
-    <?php if (!empty($_GET['success'])): ?>
-        <div class="sub-feedback success"><?php echo htmlspecialchars((string) $_GET['success']); ?></div>
-    <?php endif; ?>
+$heroKicker = 'Moderação';
+$heroTitle = 'Moderação de Usuários';
+$heroLead = 'Revise documentos, confiança e aprovações pendentes.';
+include DIRREQ . 'app/view/partials/dashboard_view_hero.php';
+?>
 
     <div class="dashboard-tab-nav" style="margin-bottom:24px;">
         <a href="<?php echo moderateUsersTabUrl('fila'); ?>" class="dashboard-tab-link <?php echo $activeTab === 'fila' ? 'is-active' : ''; ?>">
@@ -369,6 +360,7 @@
                         <option value="suspenso" <?php echo $accessStatusFilter === 'suspenso' ? 'selected' : ''; ?>>Suspenso</option>
                         <option value="rejeitado" <?php echo $accessStatusFilter === 'rejeitado' ? 'selected' : ''; ?>>Rejeitado</option>
                         <option value="pendente" <?php echo $accessStatusFilter === 'pendente' ? 'selected' : ''; ?>>Pendente</option>
+                        <option value="a_eliminar" <?php echo $accessStatusFilter === 'a_eliminar' ? 'selected' : ''; ?>>A eliminar</option>
                     </select>
                 </div>
                 <div class="filter-toolbar-actions">
@@ -397,6 +389,7 @@
                             $managedStatus = (string) ($managedUser['status'] ?? 'pendente');
                             $suspendedUntil = !empty($managedUser['suspended_until']) ? strtotime((string) $managedUser['suspended_until']) : null;
                             $isSuspended = $suspendedUntil !== false && $suspendedUntil > time();
+                            $isPendingDeletion = !empty($managedUser['deletion_requested_at']);
                         ?>
                         <tr>
                             <td class="moderation-cell-text">
@@ -430,7 +423,16 @@
                             <td><?php echo !empty($managedUser['created_at']) ? date('d/m/Y', strtotime((string) $managedUser['created_at'])) : '-'; ?></td>
                             <td>
                                 <div class="moderation-actions">
-                                    <?php if ($isSuspended): ?>
+                                    <?php if ($isPendingDeletion): ?>
+                                        <form action="<?php echo DIRPAGE; ?>dashboard/purgeUserAccountNow/<?php echo (int) ($managedUser['id'] ?? 0); ?>" method="POST" class="request-actions">
+                                            <?php echo $csrfField; ?>
+                                            <button type="submit" class="btn-secondary" data-confirm="Eliminar esta conta imediatamente? Esta acção é irreversível.">Eliminar agora</button>
+                                        </form>
+                                        <form action="<?php echo DIRPAGE; ?>dashboard/cancelUserDeletion/<?php echo (int) ($managedUser['id'] ?? 0); ?>" method="POST" class="request-actions">
+                                            <?php echo $csrfField; ?>
+                                            <button type="submit" class="btn-primary" data-confirm="Cancelar o pedido de eliminação e restaurar o acesso?">Cancelar pedido</button>
+                                        </form>
+                                    <?php elseif ($isSuspended): ?>
                                         <form action="<?php echo DIRPAGE; ?>dashboard/unsuspendUserAccess/<?php echo (int) ($managedUser['id'] ?? 0); ?>" method="POST" class="request-actions">
                                             <?php echo $csrfField; ?>
                                             <button type="submit" class="btn-primary" data-confirm="Levantar a suspensão deste utilizador?">Levantar suspensão</button>
@@ -640,4 +642,4 @@
         </div>
     </div>
     <?php endif; ?>
-</div>
+<?php include DIRREQ . 'app/view/partials/dashboard_page_end.php'; ?>

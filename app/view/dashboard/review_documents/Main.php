@@ -1,17 +1,11 @@
-<div class="container dashboard-view">
-    <?php if (isset($_GET['message'])): ?>
-        <div class="auth-message auth-message-success">
-            <?php echo htmlspecialchars($_GET['message']); ?>
-        </div>
-    <?php endif; ?>
-
-    <section class="dashboard-view-hero compact">
-        <div>
-            <span class="dashboard-hero-kicker">Compliance</span>
-            <h1>Revisão de Documentos</h1>
-            <p>Análise de conformidade documental dos utilizadores.</p>
-        </div>
-    </section>
+<?php
+$dashboardPageClass = '';
+include DIRREQ . 'app/view/partials/dashboard_page_start.php';
+$heroKicker = 'Compliance';
+$heroTitle = 'Revisão de Documentos';
+$heroLead = 'Análise de conformidade documental dos utilizadores.';
+include DIRREQ . 'app/view/partials/dashboard_view_hero.php';
+?>
 
     <section class="dashboard-overview-grid dashboard-overview-grid-tight">
         <article class="dashboard-overview-card tone-yellow">
@@ -255,6 +249,5 @@
             </div>
         <?php endif; ?>
     </div>
-</div>
-
+<?php include DIRREQ . 'app/view/partials/dashboard_page_end.php'; ?>
 
