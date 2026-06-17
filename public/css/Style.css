@@ -16869,7 +16869,8 @@ body.dashboard-overview-view .dashboard-home-overview {
 
 .my-properties-portfolio-card {
     padding-bottom: 0;
-    overflow: hidden;
+    /* Allow the "..." menu to escape the card near bottom rows. */
+    overflow: visible;
 }
 
 .my-properties-stats-strip {
